@@ -51,8 +51,11 @@ done
 
 while [ -z "$PartNum" ]; do
   read -p "Choisissez le numéro correspondant à votre future partition de données : " PartNum
-  if [[ ! "$PartNum" =~ ^[1-9][0-9]?$[0-9]?$|^"$nbDev"$ ]]; then # Si la réponse n’est pas un entier positif non nul compris entre 1 et $nbDev ( 1000 maximum )
+  if [[ ! "$PartNum" =~ ^[1-9][0-9]*$ ]]; then # Si la réponse n’est pas un entier positif non nul
     echo "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
+    unset PartNum
+  elif ! (( PartNum > 0 && PartNum <= nbDev )); then # Si la réponse n’est pas dans le choix proposé
+    echo "Votre choix doit être compris entre 1 et $nbDev."
     unset PartNum
   fi
 done
