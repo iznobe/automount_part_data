@@ -9,4 +9,4 @@ The script also creates the recycle bin or trash for the current user.
 
 Command to download and execute this script : 
 
-<code>sudo su -c "bash <(wget -qO- https://raw.githubusercontent.com/iznobe/automount_part_data/refs/heads/main/automount_part_data.sh</code>
+<code>sudo su -c "bash <(wget -qO- https://raw.githubusercontent.com/iznobe/automount_part_data/refs/heads/main/automount_part_data.sh)"</code>
