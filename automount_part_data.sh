@@ -49,7 +49,7 @@ for (( n=0; n<nbDev; n++ )); do
 done
 
 while [ -z "$PartNum" ]; do
-  read -p "Choisissez le numéro correspondant à votre future partition de données : "
+  read -rp "Choisissez le numéro correspondant à votre future partition de données : " PartNum
   if [[ ! "$PartNum" =~ ^[1-9][0-9]*$ ]] || ! (( PartNum > 0 && PartNum <= nbDev )); then
     echo "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
     unset PartNum
@@ -93,11 +93,11 @@ while [ -z "$Rep2" ]; do
     ;;
     Y|y|O|o|"")
       if grep -q "$Label" /etc/fstab; then
-        echo -e "L’étiquette « $Label » est déjà utilisée dans le fstab !"
+        echo "L’étiquette « $Label » est déjà utilisée dans le fstab !"
         exit 2
       fi
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
-        echo -e "L’UUID de la partition est déjà présent dans le fstab !"
+        echo "L’UUID de la partition est déjà présent dans le fstab !"
         exit 3
       fi
       if grep -q "^$Part" /etc/mtab; then
