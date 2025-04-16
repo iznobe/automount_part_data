@@ -12,8 +12,7 @@ label() {
   local rgx="[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]"
 
   while [ -z "$Label" ]; do
-    echo -n "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : "
-    read -r Label
+    read -rp "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : " Label
     if [[ "$Label" =~ $rgx || "${#Label}" -gt 16 ]]; then
       echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
       unset Label
@@ -32,7 +31,7 @@ if ((UID)); then
   exit 0
 fi
 
-$(lsblk -no path,label,fstype  |
+$(lsblk -no path,label,fstype |
 awk -vi=-1 'BEGIN { print "declare -A ListPart" } \
 $NF ~ "ext|ntfs" \
 {
@@ -50,9 +49,9 @@ for (( n=0; n<nbDev; n++ )); do
 done
 
 while [ -z "$PartNum" ]; do
-  read -p "Choisissez le numéro correspondant à votre future partition de données : "
-  if [[ ! "$PartNum" =~ ^[1-9][0-9]*$ ]] || ! (( PartNum > 0 && PartNum <= nbDev )); then # Si la réponse n’est pas un entier positif non nul ou Si la réponse n’est pas dans le choix proposé
-    echo "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
+  read -p "Choisissez le numéro correspondant à votre future partition de données : " PartNum
+if ! (( PartNum > 0 && PartNum <= nbDev )); then # Si la réponse n’est pas dans le choix proposé
+    echo "Votre choix doit être compris entre 1 et $nbDev."
     unset PartNum
   fi
 done
@@ -72,7 +71,7 @@ else
     case "$Rep" in
       N|n)
         Label="$PartLabel"
-        break
+    break
       ;;
       Y|y|O|o|"")
         label
@@ -95,7 +94,7 @@ while [ -z "$Rep2" ]; do
       exit 1
     ;;
     Y|y|O|o|"")
-       if grep -q "$Label" /etc/fstab; then # vérifier si une étiquette du même nom existe dans le fstab
+      if grep -q "$Label" /etc/fstab; then # vérifier si une étiquette du même nom existe dans le fstab
         echo -e "L’étiquette « $Label » est déjà utilisée dans le fstab !"
         exit 2
       fi
