@@ -101,7 +101,7 @@ while [ -z "$Rep2" ]; do
         exit 3
       fi
       if grep -q "^$Part" /etc/mtab; then
-        echo -e "La partition « $Part » est déjà montée !"
+        echo "La partition « $Part » est déjà montée !"
         while [ -z "$rep3" ]; do
           read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder au changement pour étiquette « $Label » ? [O/n] " Rep3
           case "$Rep3" in
@@ -111,13 +111,14 @@ while [ -z "$Rep2" ]; do
             ;;
             Y|y|O|o|"")
               PartMountPoints="$(grep "$Part" /etc/mtab | cut -d " " -f 2)"
-              for pmp in $PartMountPoints; do
+              for pmp in "$PartMountPoints"; do
                 umount -v "$pmp"
                 Num="$(grep -n "$pmp" /etc/fstab | cut -d ":" -f 1 | sort -rV)"
                 for n in $Num; do
                   sed -i "${n}d" /etc/fstab
                 done
               done
+              sleep 1 # prise en compte du montage par le dash , sans delai , parfois la partition ne s' affiche pas .
               break
             ;;
             *)
