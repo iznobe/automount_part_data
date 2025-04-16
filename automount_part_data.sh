@@ -66,8 +66,7 @@ if [[ -z "$PartLabel" ]]; then
 else
   echo "La partition « $Part » a l’étiquette « $PartLabel »."
   while [ -z "$Rep" ]; do
-    echo -n "Voulez-vous changer l’étiquette de la partition « $Part » ? [O/n] "
-    read -r Rep
+    read -rp "Voulez-vous changer l’étiquette de la partition « $Part » ? [O/n] " Rep
     case "$Rep" in
       N|n)
         Label="$PartLabel"
@@ -85,8 +84,7 @@ else
 fi
 
 while [ -z "$Rep2" ]; do
-  echo -n "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $Label » ? [O/n] "
-  read -r Rep2
+  read -rp "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $Label » ? [O/n] " Rep2
 
   case "$Rep2" in
     N|n)
@@ -105,8 +103,7 @@ while [ -z "$Rep2" ]; do
       if grep -q "^$Part" /etc/mtab; then # vérifier si la partition est déjà montée
         echo -e "La partition « $Part » est déjà montée !"
         while [ -z "$rep3" ]; do
-          echo -n "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder au changement pour étiquette « $Label » ? [O/n] "
-          read -r Rep3
+          read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder au changement pour étiquette « $Label » ? [O/n] " Rep3
           case "$Rep3" in
             N|n)
               echo -e "Annulation par l’utilisateur !"
