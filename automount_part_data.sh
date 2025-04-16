@@ -50,7 +50,7 @@ done
 
 while [ -z "$PartNum" ]; do
   read -p "Choisissez le numéro correspondant à votre future partition de données : " PartNum
-if ! (( PartNum > 0 && PartNum <= nbDev )); then # Si la réponse n’est pas dans le choix proposé
+  if ! (( PartNum > 0 && PartNum <= nbDev )); then # Si la réponse n’est pas dans le choix proposé
     echo "Votre choix doit être compris entre 1 et $nbDev."
     unset PartNum
   fi
@@ -70,7 +70,7 @@ else
     case "$Rep" in
       N|n)
         Label="$PartLabel"
-    break
+        break
       ;;
       Y|y|O|o|"")
         label
