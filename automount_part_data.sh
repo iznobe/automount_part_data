@@ -111,7 +111,7 @@ while [ -z "$Rep2" ]; do
             ;;
             Y|y|O|o|"")
               PartMountPoints="$(grep "$Part" /etc/mtab | cut -d " " -f 2)"
-              for pmp in "$PartMountPoints"; do
+              for pmp in $PartMountPoints; do
                 umount -v "$pmp"
                 Num="$(grep -n "$pmp" /etc/fstab | cut -d ":" -f 1 | sort -rV)"
                 for n in $Num; do
