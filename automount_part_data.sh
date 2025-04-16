@@ -18,7 +18,7 @@ label() {
       unset Label
     fi
   done
-  for (( n=0; n<"$nbDev"; n++ )); do # étiquette déjà utilisée ?
+  for (( n=0; n<"$nbDev"; n++ )); do
     if [[ $Label == "${ListPart[$n,1]}" ]]; then
       echo "Erreur, votre étiquette « $Label » est déjà attribuée !"
       exit 4
@@ -49,9 +49,9 @@ for (( n=0; n<nbDev; n++ )); do
 done
 
 while [ -z "$PartNum" ]; do
-  read -p "Choisissez le numéro correspondant à votre future partition de données : " PartNum
-  if ! (( PartNum > 0 && PartNum <= nbDev )); then # Si la réponse n’est pas dans le choix proposé
-    echo "Votre choix doit être compris entre 1 et $nbDev."
+  read -p "Choisissez le numéro correspondant à votre future partition de données : "
+  if [[ ! "$PartNum" =~ ^[1-9][0-9]*$ ]] || ! (( PartNum > 0 && PartNum <= nbDev )); then
+    echo "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
     unset PartNum
   fi
 done
@@ -88,25 +88,25 @@ while [ -z "$Rep2" ]; do
 
   case "$Rep2" in
     N|n)
-      echo -e "Annulation par l’utilisateur !"
+      echo "Annulation par l’utilisateur !"
       exit 1
     ;;
     Y|y|O|o|"")
-      if grep -q "$Label" /etc/fstab; then # vérifier si une étiquette du même nom existe dans le fstab
+      if grep -q "$Label" /etc/fstab; then
         echo -e "L’étiquette « $Label » est déjà utilisée dans le fstab !"
         exit 2
       fi
-      if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then # PartUUID est déjà present dans fstab
+      if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo -e "L’UUID de la partition est déjà présent dans le fstab !"
         exit 3
       fi
-      if grep -q "^$Part" /etc/mtab; then # vérifier si la partition est déjà montée
+      if grep -q "^$Part" /etc/mtab; then
         echo -e "La partition « $Part » est déjà montée !"
         while [ -z "$rep3" ]; do
           read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder au changement pour étiquette « $Label » ? [O/n] " Rep3
           case "$Rep3" in
             N|n)
-              echo -e "Annulation par l’utilisateur !"
+              echo "Annulation par l’utilisateur !"
               exit 1
             ;;
             Y|y|O|o|"")
