@@ -26,6 +26,35 @@ label() {
   done
 }
 
+unmount() {
+  while [ -z "$rep3" ]; do
+    read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder aux changements pour la monter avec l'étiquette « $Label » ? [O/n] " Rep3
+    case "$Rep3" in
+      N|n)
+        echo "Annulation par l’utilisateur !"
+        exit 1
+      ;;
+      Y|y|O|o|"")
+        PartMountPoints="$(grep "$Part" /etc/mtab | cut -d " " -f 2)"
+        for pmp in "${PartMountPoints[@]}"; do
+          umount -v "$pmp"
+          rmdir -v "$pmp"
+          numLines=( $(grep -n "$pmp" /etc/fstab | cut -d ":" -f 1 | sort -rn) )
+          for n in "${numLines[@]}"; do
+            sed -i "${n}d" /etc/fstab
+          done
+        done
+        sleep 1 # prise en compte du montage par le dash , sans delai , parfois la partition ne s' affiche pas .
+        unset Rep3
+        break
+      ;;
+      *)
+        unset Rep3
+      ;;
+    esac
+ done
+}
+
 if ((UID)); then
   echo "Vous devez être super utilisateur pour lancer ce script (essayez avec « sudo »)"
   exit 0
@@ -70,10 +99,12 @@ else
     case "$Rep" in
       N|n)
         Label="$PartLabel"
+        unset Rep
         break
       ;;
       Y|y|O|o|"")
         label
+        unset Rep
         break
       ;;
       *)
@@ -89,43 +120,19 @@ while [ -z "$Rep2" ]; do
   case "$Rep2" in
     N|n)
       echo "Annulation par l’utilisateur !"
+      unset Rep2
       exit 1
     ;;
     Y|y|O|o|"")
-      if grep -q "$Label" /etc/fstab; then
-        echo "L’étiquette « $Label » est déjà utilisée dans le fstab !"
-        exit 2
-      fi
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo "L’UUID de la partition est déjà présent dans le fstab !"
-        exit 3
-      fi
-      if grep -q "^$Part" /etc/mtab; then
+        unmount        
+      elif grep -Eq "(LABEL=|by-label/)$Label" /etc/fstab; then
+        echo "L’étiquette « $Label » est déjà utilisée dans le fstab !"
+        unmount
+      elif grep -q "^$Part" /etc/mtab; then
         echo "La partition « $Part » est déjà montée !"
-        while [ -z "$rep3" ]; do
-          read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder au changement pour étiquette « $Label » ? [O/n] " Rep3
-          case "$Rep3" in
-            N|n)
-              echo "Annulation par l’utilisateur !"
-              exit 1
-            ;;
-            Y|y|O|o|"")
-              PartMountPoints="$(grep "$Part" /etc/mtab | cut -d " " -f 2)"
-              for pmp in $PartMountPoints; do
-                umount -v "$pmp"
-                Num="$(grep -n "$pmp" /etc/fstab | cut -d ":" -f 1 | sort -rV)"
-                for n in $Num; do
-                  sed -i "${n}d" /etc/fstab
-                done
-              done
-              sleep 1 # prise en compte du montage par le dash , sans delai , parfois la partition ne s' affiche pas .
-              break
-            ;;
-            *)
-            unset Rep3
-            ;;
-          esac
-        done
+        unmount
       fi
 
       # construction des éléments :
@@ -155,6 +162,7 @@ while [ -z "$Rep2" ]; do
         echo "erreur inconnue !"
         exit 10
       fi
+      unset Rep2
       break
     ;;
     *)
