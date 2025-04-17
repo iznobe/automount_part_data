@@ -35,7 +35,7 @@ unmount() {
         exit 1
       ;;
       Y|y|O|o|"")
-        PartMountPoints="$(grep "$Part" /etc/mtab | cut -d " " -f 2)"
+        PartMountPoints=( $(grep "$Part" /etc/mtab | cut -d " " -f 2) )
         for pmp in "${PartMountPoints[@]}"; do
           umount -v "$pmp"
           rmdir -v "$pmp"
