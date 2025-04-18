@@ -138,10 +138,10 @@ while [ -z "$Rep2" ]; do
       # construction des éléments :
       if [[ "$PartFstype" =~ ext[2-4] ]]; then
         e2label "$Part" "$Label"
-        echo "LABEL=$Label /media/$Label $PartFstype defaults" >> /etc/fstab
+        echo "LABEL=$Label /media/$Label $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab
       elif [[ "$PartFstype" == "ntfs"  ]]; then
         ntfslabel  "$Part" "$Label"
-        echo "LABEL=$Label /media/$Label ntfs3 defaults,nofail,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
+        echo "LABEL=$Label /media/$Label ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
       fi
       mkdir /media/"$Label" 2>/dev/null
       systemctl daemon-reload
