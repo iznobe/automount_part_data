@@ -8,6 +8,8 @@
 # retour.
 # ----------------------------------------------------------------------------
 
+rgx_no_list="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$"
+
 label() {
   local rgx="[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]"
 
@@ -19,7 +21,7 @@ label() {
     fi
   done
   for (( n=0; n<"$nbDev"; n++ )); do
-    if [[ $Label == "${ListPart[$n,1]}" ]]; then
+    if [[ $Label == "${ListPart[$n,3]}" ]]; then
       echo "Erreur, votre étiquette « $Label » est déjà attribuée !"
       exit 4
     fi
@@ -27,24 +29,31 @@ label() {
 }
 
 unmount() {
+  local rgx="^(/mnt/|/media/).+$"
+
   while [ -z "$rep3" ]; do
     read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder aux changements pour la monter avec l'étiquette « $Label » ? [O/n] " Rep3
     case "$Rep3" in
       N|n)
         echo "Annulation par l’utilisateur !"
-        exit 1
+        unset Rep3
+        exit 0
       ;;
       Y|y|O|o|"")
         PartMountPoints=( $(grep "$Part" /etc/mtab | cut -d " " -f 2) )
         for pmp in "${PartMountPoints[@]}"; do
           umount -v "$pmp"
-          rmdir -v "$pmp"
+          if [[ "$pmp" =~ $rgx ]]; then
+            rmdir -v "$pmp"
+          else
+            echo "$pmp n’a pas été supprimé."
+          fi
           numLines=( $(grep -n "$pmp" /etc/fstab | cut -d ":" -f 1 | sort -rn) )
           for n in "${numLines[@]}"; do
             sed -i "${n}d" /etc/fstab
           done
         done
-        sleep 1 # prise en compte du montage par le dash , sans delai , parfois la partition ne s' affiche pas .
+        sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
         unset Rep3
         break
       ;;
@@ -57,25 +66,34 @@ unmount() {
 
 if ((UID)); then
   echo "Vous devez être super utilisateur pour lancer ce script (essayez avec « sudo »)"
-  exit 0
+  exit 1
 fi
 
-$(lsblk -no path,label,fstype |
-awk -vi=-1 'BEGIN { print "declare -A ListPart" } \
-$NF ~ "ext|ntfs" \
+$(lsblk -no path,fstype,mountpoint,label |
+awk -v i=-1 -v re="$rgx_no_list" \
+'BEGIN { print "declare -A ListPart" } 
+$2 ~ "ext|ntfs" \
 {
-j=0 ;
-if ($2 ~ /^ext[2-4]$/ || $2 ~ /^ntfs$/)
-{ print "ListPart["++i","j"]="$1"\nListPart["i","++j"]=""\nListPart["i","++j"]="$2 }
-else
-{ print "ListPart["++i","j"]="$1"\nListPart["i","++j"]="$2"\nListPart["i","++j"]="$3 }
+  if ($3 ~ re)
+    { next }
+  else
+    { print "ListPart["++i",0]="$1"\nListPart["i",1]="$2"\nListPart["i",2]="$3"\nListPart["i",3]="$4 }
 }')
 
-nbDev=$(( "${#ListPart[@]}"/3 ))
+if [ "${#ListPart[@]}" == "0" ]; then
+  echo "Il n’y a pas de partition susceptible d’être montée."
+  exit 8
+fi
 
+nbDev=$(("${#ListPart[@]}"/4))
+
+echo
+echo "n° ⇒  path   label   fstype   mountpoint"
+echo "----------------------------------------"
 for (( n=0; n<nbDev; n++ )); do
-  echo "$(( n+1 )) ⇒ ${ListPart[$n,0]}   ${ListPart[$n,1]}   ${ListPart[$n,2]}"
+  echo "$((n+1)) ⇒ ${ListPart[$n,0]}   ${ListPart[$n,3]}   ${ListPart[$n,1]}   ${ListPart[$n,2]}"
 done
+echo
 
 while [ -z "$PartNum" ]; do
   read -rp "Choisissez le numéro correspondant à votre future partition de données : " PartNum
@@ -85,9 +103,9 @@ while [ -z "$PartNum" ]; do
   fi
 done
 
-Part="${ListPart[$(( PartNum-1 )),0]}"
-PartLabel="${ListPart[$(( PartNum-1 )),1]}"
-PartFstype="${ListPart[$(( PartNum-1 )),2]}"
+Part="${ListPart[$((PartNum-1)),0]}"
+PartLabel="${ListPart[$((PartNum-1)),3]}"
+PartFstype="${ListPart[$((PartNum-1)),1]}"
 
 if [[ -z "$PartLabel" ]]; then
   echo "La partition « $Part » n’a pas d’étiquette."
@@ -121,7 +139,7 @@ while [ -z "$Rep2" ]; do
     N|n)
       echo "Annulation par l’utilisateur !"
       unset Rep2
-      exit 1
+      exit 0
     ;;
     Y|y|O|o|"")
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
