@@ -8,8 +8,6 @@
 # retour.
 # ----------------------------------------------------------------------------
 
-rgx_no_list="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$"
-
 label() {
   local rgx="[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]"
 
@@ -70,14 +68,19 @@ if ((UID)); then
 fi
 
 $(lsblk -no path,fstype,mountpoint,label |
-awk -v i=-1 -v re="$rgx_no_list" \
-'BEGIN { print "declare -A ListPart" } 
-$2 ~ "ext|ntfs" \
-{
-  if ($3 ~ re)
-    { next }
-  else
-    { print "ListPart["++i",0]="$1"\nListPart["i",1]="$2"\nListPart["i",2]="$3"\nListPart["i",3]="$4 }
+awk -v i=-1 'BEGIN { print "declare -A ListPart" } 
+$2 ~ "^(ext[2-4]|ntfs)$" {
+  if ($3 ~ "^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$") {
+    next  
+  }
+  else if ($3 ~ "^/") {
+    print "ListPart["++i",0]="$1"\nListPart["i",1]="$2\
+    "\nListPart["i",2]="$3"\nListPart["i",3]="$4
+  }
+  else {
+    print "ListPart["++i",0]="$1"\nListPart["i",1]="$2\
+    "\nListPart["i",2]=\nListPart["i",3]="$3
+  }
 }')
 
 if [ "${#ListPart[@]}" == "0" ]; then
