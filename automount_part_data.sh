@@ -18,8 +18,7 @@ label() {
     if [[ $Label =~ $rgx || ${#Label} -gt 16 ]]; then
       echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
       unset Label
-    fi
-    if lsblk -no label | grep -q "$Label"; then
+    elif lsblk -no label | grep -q "$Label"; then
       echo "Erreur, votre étiquette « $Label » est déjà attribuée ! Choisissez en une autre."
       unset Label
     fi
