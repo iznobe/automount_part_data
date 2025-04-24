@@ -19,11 +19,11 @@ label() {
       echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
       unset Label
     fi
+    if lsblk -no label | grep -q "$Label"; then
+      echo "Erreur, votre étiquette « $Label » est déjà attribuée ! Choisissez en une autre."
+      unset Label
+    fi
   done
-  if lsblk -no label | grep -q "$Label"; then
-    echo "Erreur, votre étiquette « $Label » est déjà attribuée !"
-    exit 3
-  fi
 }
 
 unmount() {
@@ -55,8 +55,8 @@ unmount() {
           done
         elif [[ -d $mp && $mp =~ $rgx ]]; then
             rmdir -v "$mp"
-          elif [ -n "$mp" ]; then
-            echo "$mp n’a pas été supprimé."
+        else
+          echo "$mp n’a pas été supprimé."
         fi
         sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
         sed -i "/$Label/d" /etc/fstab
@@ -79,8 +79,7 @@ declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr
 
 i=-1
 
-while read -ra lsblkDT #path fstype mountpoint label
-do
+while read -ra lsblkDT; do #path fstype mountpoint label
   if [[ ${lsblkDT[1]} =~ ${Rgx[fstype]} ]]; then
     if [[ ${lsblkDT[2]} =~ ${Rgx[mountP]} ]]; then
       continue
