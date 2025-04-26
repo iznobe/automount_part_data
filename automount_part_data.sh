@@ -12,14 +12,14 @@ LC_ALL=C
 
 label() {
   local rgx="[^[:alnum:]_-]"
-  local regLab="^($Label)$"
+  local regLabel="^($Label)$"
 
   while [ -z "$Label" ]; do
     read -rp "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : " Label
     if [[ $Label =~ $rgx || ${#Label} -gt 16 ]]; then
       echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
       unset Label
-    elif [[ $(lsblk -no label) =~ $regLab ]]; then
+    elif [[ $(lsblk -no label) =~ $regLabel ]]; then
       echo "Erreur, votre étiquette « $Label » est déjà attribuée ! Choisissez-en une autre."
       unset Label
     fi
@@ -29,7 +29,7 @@ label() {
 unmount() {
   local rgx="^(/mnt/|/media/).+$"
   local mp
-  mp="$(grep -E "$regFstabLab" /etc/fstab | cut -d ' ' -f 2)"
+  mp="$(grep -E "$regFstabLabel" /etc/fstab | cut -d ' ' -f 2)"
 
   while true; do
     read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder aux changements pour la monter avec l'étiquette « $Label » ? [O/n] "
@@ -56,6 +56,7 @@ unmount() {
               sed -i "${n}d" /etc/fstab
             done
           done
+        fi
         # traitement des partitions NON montées :
         if [ -d "$mp" ]; then
           echo "$mp"
@@ -65,7 +66,7 @@ unmount() {
             echo "$mp a été conservé."
           fi
         sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
-        sed -i "/$regFstabLab/d" /etc/fstab 
+        sed -i "/$regFstabLabel/d" /etc/fstab 
         fi
         sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
         break
@@ -83,7 +84,7 @@ fi
 
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
-regFstabLab="^(LABEL=|/dev/disk/by-label/)$Label$"
+regFstabLabel="^(LABEL=|/dev/disk/by-label/)$Label$"
 
 i=-1
 
@@ -174,7 +175,7 @@ while true; do
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo "L’UUID de la partition est déjà présent dans le fstab !"
         unmount        
-      elif grep -Eq "$regFstabLab" /etc/fstab; then # elif grep -Eq "(LABEL=|by-label/)$Label" /etc/fstab; then
+      elif grep -Eq "$regFstabLabel" /etc/fstab; then # elif grep -Eq "(LABEL=|by-label/)$Label" /etc/fstab; then
         echo "L’étiquette « $Label » est déjà utilisée dans le fstab !"
         unmount
       elif grep -q "^$Part" /etc/mtab; then
