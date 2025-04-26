@@ -57,7 +57,7 @@ unmount() {
             done
           done
         # traitement des partitions NON montées :
-        elif [ -d "$mp" ]; then
+        if [ -d "$mp" ]; then
           echo "$mp"
           if [[ $mp =~ $rgx ]]; then
             rmdir -v "$mp"
