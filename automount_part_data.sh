@@ -224,6 +224,7 @@ while true; do
         echo "Script pour montage de partition de données terminé avec succès !"
         echo
         echo "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « /media/$newLabel/$SUDO_USER-$newLabel »."
+        sudo -u "$SUDO_USER" xdg-open "/media/$newLabel/$SUDO_USER-$newLabel" >/dev/null 2>&1
       else
         echo "Erreur inconnue !"
         exit 4
