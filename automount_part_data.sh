@@ -178,10 +178,14 @@ while true; do
     Y|y|O|o|"")
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo "L’UUID de la partition est déjà présent dans le fstab !"
+        echo "les lignes contenant cet UUID seront supprimées du fichier /etc/fstab si vous poursuivez"
       elif grep -Eq "(LABEL=|/dev/disk/by-label/)$newLabel" /etc/fstab; then
         echo "L’étiquette « $newLabel » est déjà utilisée dans le fstab !"
+        echo "les lignes contenant ce LABEL seront supprimées du fichier /etc/fstab si vous poursuivez"
       elif grep -q "^$Part" /etc/mtab; then
         echo "La partition « $Part » est déjà montée !"
+        echo "la partition sera demontée , le fichier /etc/fstab nettoyé , et la partition sera à nouveau montée si vous poursuivez"
+        
       fi
       unmount
 
