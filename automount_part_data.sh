@@ -11,7 +11,7 @@
 LC_ALL=C
 
 choixlabel() {
-  local rgx="[^[:alnum:]_-]"
+  local rgx="[^[:alnum:]_-.]"
 
   while [ -z "$newLabel" ]; do    
     read -rp "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : " newLabel
@@ -74,8 +74,8 @@ unmount() {
               sed -i "${n}d" /etc/fstab              
             done
           done
-        sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
         fi
+        sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
         sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
         break
       ;;
@@ -144,8 +144,6 @@ done
 Part="${ListPart[$((PartNum-1)),0]}"
 PartLabel="${ListPart[$((PartNum-1)),3]}"
 PartFstype="${ListPart[$((PartNum-1)),1]}"
-
-#umount -v /media/"$PartLabel"
 
 if [ -z "$PartLabel" ]; then
   echo "La partition « $Part » n’a pas d’étiquette."
