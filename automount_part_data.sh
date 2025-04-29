@@ -19,9 +19,8 @@ choixlabel() {
       echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
       unset newLabel
     fi
-    mapfile -t labels < <(lsblk -no label)
-    for i in "${!labels[@]}"; do
-      if [[ "${labels[i]}" == "$newLabel" ]]; then
+    for i in ${!ListPart[*]}; do
+      if [[ $i == *,3 && ${ListPart[$i]} == "$newLabel" ]]; then
         echo "Erreur, votre étiquette « $newLabel » est déjà attribuée ! Choisissez-en une autre."
         unset newLabel
         break
@@ -95,7 +94,6 @@ declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 
 i=-1
-
 
 while read -ra lsblkDT; do #path fstype mountpoint label
   if [[ ${lsblkDT[1]} =~ ${Rgx[fstype]} ]]; then
