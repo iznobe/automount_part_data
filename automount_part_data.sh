@@ -10,29 +10,30 @@
 
 LC_ALL=C
 
-label() {
+choixlabel() {
   local rgx="[^[:alnum:]_-]"
-  local regLabel="^($Label)$"
 
-  while [ -z "$Label" ]; do
-    read -rp "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : " Label
-    if [[ $Label =~ $rgx || ${#Label} -gt 16 ]]; then
+  while [ -z "$newLabel" ]; do    
+    read -rp "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : " newLabel
+    if [[ $newLabel =~ $rgx || ${#newLabel} -gt 16 ]]; then
       echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
-      unset Label
-    elif [[ $(lsblk -no label) =~ $regLabel ]]; then
-      echo "Erreur, votre étiquette « $Label » est déjà attribuée ! Choisissez-en une autre."
-      unset Label
+      unset newLabel
     fi
+    mapfile -t labels < <(lsblk -no label)
+    for i in "${!labels[@]}"; do
+      if [[ "${labels[i]}" == "$newLabel" ]]; then
+        echo "Erreur, votre étiquette « $newLabel » est déjà attribuée ! Choisissez-en une autre."
+        unset newLabel
+        break
+      fi
+    done
   done
 }
 
 unmount() {
   local rgx="^(/mnt/|/media/).+$"
-  local mp
-  mp="$(grep -E "$regFstabLabel" /etc/fstab | cut -d ' ' -f 2)"
-
   while true; do
-    read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder aux changements pour la monter avec l'étiquette « $Label » ? [O/n] "
+    read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder aux changements pour la monter avec l'étiquette « $newLabel » ? [O/n] "
     case "$REPLY" in
       N|n)
         echo "Annulation par l’utilisateur !"
@@ -57,16 +58,24 @@ unmount() {
             done
           done
         fi
+
         # traitement des partitions NON montées :
-        if [ -d "$mp" ]; then
-          echo "$mp"
-          if [[ $mp =~ $rgx ]]; then
-            rmdir -v "$mp"
-          else
-            echo "$mp a été conservé."
-          fi
+        mapfile -t mountPoints < <(grep -E "^(LABEL=|/dev/disk/by-label/)$PartLabel" /etc/fstab | cut -d ' ' -f 2)
+        if [ -n "${mountPoints[0]}" ]; then
+          for mp in "${mountPoints[@]}"; do
+            if [ -d "$mp" ]; then
+              if [[ $mp =~ $rgx ]]; then
+                rmdir -v "$mp"
+              else
+                echo "$mp a été conservé."
+              fi
+            fi
+            mapfile -t numLines < <(grep -n "$mp" /etc/fstab | cut -d ":" -f 1 | sort -rn)
+            for n in "${numLines[@]}"; do
+              sed -i "${n}d" /etc/fstab              
+            done
+          done
         sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
-        sed -i "/$regFstabLabel/d" /etc/fstab 
         fi
         sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
         break
@@ -84,7 +93,6 @@ fi
 
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
-regFstabLabel="^(LABEL=|/dev/disk/by-label/)$Label$"
 
 i=-1
 
@@ -143,18 +151,18 @@ PartFstype="${ListPart[$((PartNum-1)),1]}"
 
 if [ -z "$PartLabel" ]; then
   echo "La partition « $Part » n’a pas d’étiquette."
-  label
+  choixlabel
 else
   echo "La partition « $Part » a l’étiquette « $PartLabel »."
   while true; do
     read -rp "Voulez-vous changer l’étiquette de la partition « $Part » ? [O/n] "
     case "$REPLY" in
       N|n)
-        Label="$PartLabel"
+        newLabel="$PartLabel"
         break
       ;;
       Y|y|O|o|"")
-        label
+        choixlabel
         break
       ;;
       *)
@@ -164,7 +172,7 @@ else
 fi
 
 while true; do
-  read -rp "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $Label » ? [O/n] "
+  read -rp "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
 
   case "$REPLY" in
     N|n)
@@ -174,47 +182,49 @@ while true; do
     Y|y|O|o|"")
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo "L’UUID de la partition est déjà présent dans le fstab !"
-        unmount        
-      elif grep -Eq "$regFstabLabel" /etc/fstab; then # elif grep -Eq "(LABEL=|by-label/)$Label" /etc/fstab; then
-        echo "L’étiquette « $Label » est déjà utilisée dans le fstab !"
-        unmount
+      elif grep -Eq "(LABEL=|/dev/disk/by-label/)$newLabel" /etc/fstab; then
+        echo "L’étiquette « $newLabel » est déjà utilisée dans le fstab !"
       elif grep -q "^$Part" /etc/mtab; then
         echo "La partition « $Part » est déjà montée !"
-        unmount
       fi
+      unmount
 
       # construction des éléments :
       if [[ $PartFstype =~ ext[2-4] ]]; then
-        e2label "$Part" "$Label"
-        echo "LABEL=$Label /media/$Label $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab
+        e2label "$Part" "$newLabel"
+        echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab
       elif [ "$PartFstype" == "ntfs" ]; then
-        ntfslabel  "$Part" "$Label"
-        echo "LABEL=$Label /media/$Label ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
+        ntfslabel  "$Part" "$newLabel"
+        echo "LABEL=$newLabel /media/$newLabel ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
       fi
-      if ! [ -d /media/"$Label" ]; then
-        mkdir -v /media/"$Label"
+      if ! [ -d /media/"$newLabel" ]; then
+        mkdir -v /media/"$newLabel"
       fi
       systemctl daemon-reload
       if ! mount -a; then
+        echo "erreur innatendue , annulation des modifications !"
+        rmdir -v /media/"$newLabel"
+        systemctl daemon-reload
         exit 3
       fi
 
-      if ! [ -d /media/"$Label"/"$SUDO_USER"-"$Label" ]; then
-        mkdir -v /media/"$Label"/"$SUDO_USER"-"$Label"
+      if ! [ -d /media/"$newLabel"/"$SUDO_USER"-"$newLabel" ]; then
+        mkdir -v /media/"$newLabel"/"$SUDO_USER"-"$newLabel"
       fi
-      chown -c "$SUDO_USER": /media/"$Label"/"$SUDO_USER"-"$Label"
-      if ! [ -d /media/"$Label"/.Trash-"$SUDO_UID" ]; then
-        mkdir -v /media/"$Label"/.Trash-"$SUDO_UID"
+      chown -c "$SUDO_USER": /media/"$newLabel"/"$SUDO_USER"-"$newLabel"
+      if ! [ -d /media/"$newLabel"/.Trash-"$SUDO_UID" ]; then
+        mkdir -v /media/"$newLabel"/.Trash-"$SUDO_UID"
       fi
-      chown -c "$SUDO_USER": /media/"$Label"/.Trash-"$SUDO_UID"
-      chmod -c 700 /media/"$Label"/.Trash-"$SUDO_UID"
+      chown -c "$SUDO_USER": /media/"$newLabel"/.Trash-"$SUDO_UID"
+      chmod -c 700 /media/"$newLabel"/.Trash-"$SUDO_UID"
 
-      if [ -d /media/"$Label"/.Trash-"$SUDO_UID" ]; then
+      if [ -d /media/"$newLabel"/.Trash-"$SUDO_UID" ]; then
         echo
         echo "-----------------------------------------------------------------"
         echo "Script pour montage de partition de données terminé avec succès !"
         echo
-        echo "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « /media/$Label/$SUDO_USER-$Label »."
+        echo "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « /media/$newLabel/$SUDO_USER-$newLabel »."
+        xdg-open "/media/$newLabel/$SUDO_USER-$newLabel"
       else
         echo "Erreur inconnue !"
         exit 4
