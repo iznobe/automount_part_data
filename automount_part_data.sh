@@ -10,7 +10,7 @@
 
 LC_ALL=C
 
-choixlabel() {
+chooseLabel() {
   local rgx="[^[:alnum:]_-.]"
 
   while [ -z "$newLabel" ]; do    
@@ -110,7 +110,7 @@ PartFstype="${ListPart[$((PartNum-1)),1]}"
 
 if [ -z "$PartLabel" ]; then
   echo "La partition « $Part » n’a pas d’étiquette."
-  choixlabel
+  chooseLabel
 else
   echo "La partition « $Part » a l’étiquette « $PartLabel »."
   while true; do
@@ -121,7 +121,7 @@ else
         break
       ;;
       Y|y|O|o|"")
-        choixlabel
+        chooseLabel
         break
       ;;
       *)
