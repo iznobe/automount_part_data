@@ -29,60 +29,23 @@ choixlabel() {
   done
 }
 
-unmount() {
-  local rgx="^(/mnt/|/media/).+$"
-  while true; do
-    read -rp "Voulez-vous démonter la partition « $Part » de son emplacement actuel et procéder aux changements pour la monter avec l'étiquette « $newLabel » ? [O/n] "
-    case "$REPLY" in
-      N|n)
-        echo "Annulation par l’utilisateur !"
-        exit 0
-      ;;
-      Y|y|O|o|"")
-        # traitement des partitions montées :
-        mapfile -t PartMountPoints < <(grep "$Part" /etc/mtab | cut -d " " -f 2)
-        if [ -n "${PartMountPoints[0]}" ]; then
-          for pmp in "${PartMountPoints[@]}"; do
-            umount -v "$pmp"
-            if [ -d "$pmp" ]; then
-              if [[ $pmp =~ $rgx ]]; then
-                rmdir -v "$pmp"
-              else
-                echo "$pmp a été conservé."
-              fi
+delMountPoints() {
+    local rgx="^(/mnt/|/media/).+$"
+    declare -n parts=$1
+    for part in "${parts[@]}"; do
+        if test "$1" = 'mountedParts'; then umount -v "$part"; fi
+        if [ -d "$part" ]; then
+            if [[ $part =~ $rgx ]]; then
+                rmdir -v "$part"
+            else
+                echo "$part a été conservé."
             fi
-            mapfile -t numLines < <(grep -n "$pmp" /etc/fstab | cut -d ":" -f 1 | sort -rn)
-            for n in "${numLines[@]}"; do
-              sed -i "${n}d" /etc/fstab
-            done
-          done
         fi
-
-        # traitement des partitions NON montées :
-        mapfile -t mountPoints < <(grep -E "^(LABEL=|/dev/disk/by-label/)$PartLabel" /etc/fstab | cut -d ' ' -f 2)
-        if [ -n "${mountPoints[0]}" ]; then
-          for mp in "${mountPoints[@]}"; do
-            if [ -d "$mp" ]; then
-              if [[ $mp =~ $rgx ]]; then
-                rmdir -v "$mp"
-              else
-                echo "$mp a été conservé."
-              fi
-            fi
-            mapfile -t numLines < <(grep -n "$mp" /etc/fstab | cut -d ":" -f 1 | sort -rn)
-            for n in "${numLines[@]}"; do
-              sed -i "${n}d" /etc/fstab              
-            done
-          done
-        fi
-        sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
-        sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
-        break
-      ;;
-      *)
-      ;;
-    esac
- done
+        mapfile -t numLines < <(grep -n "$part" /etc/fstab | cut -d ":" -f 1 | sort -rn)
+        for n in "${numLines[@]}"; do
+            sed -i "${n}d" /etc/fstab
+        done
+    done
 }
 
 if ((UID)); then
@@ -179,15 +142,45 @@ while true; do
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo "L’UUID de la partition est déjà présent dans le fstab !"
         echo "les lignes contenant cet UUID seront supprimées du fichier /etc/fstab si vous poursuivez"
+        q=1
       elif grep -Eq "(LABEL=|/dev/disk/by-label/)$newLabel" /etc/fstab; then
         echo "L’étiquette « $newLabel » est déjà utilisée dans le fstab !"
         echo "les lignes contenant ce LABEL seront supprimées du fichier /etc/fstab si vous poursuivez"
+        q=1
       elif grep -q "^$Part" /etc/mtab; then
         echo "La partition « $Part » est déjà montée !"
         echo "la partition sera demontée , le fichier /etc/fstab nettoyé , et la partition sera à nouveau montée si vous poursuivez"
-        
+        q=1
       fi
-      unmount
+
+      while ((q=1)); do
+        read -rp "Etes-vous SÛR de vouloir procéder au montage pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
+        case "$REPLY" in
+          N|n)
+            echo "Annulation par l’utilisateur !"
+            exit 0
+          ;;
+          Y|y|O|o|"")
+            break
+          ;;
+          *)
+          ;;
+        esac
+      done
+
+      # sauvegarde
+      echo "sauvegarde du fichier « /etc/fstab » en « /etc/fstab.BaK » avant modifications"
+      cp /etc/fstab /etc/fstab.BaK
+
+      # nettoyage
+      # traitement des partitions montées
+      mapfile -t mountedParts < <(grep "$Part" /etc/mtab | cut -d ' ' -f 2)
+      delMountPoints mountedParts
+      # traitement des partitions NON montées
+      mapfile -t unmountedParts < <(grep -E "^(LABEL=|/dev/disk/by-label/)$PartLabel" /etc/fstab | cut -d ' ' -f 2)
+      delMountPoints unmountedParts
+      sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
+      sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
 
       # construction des éléments :
       if [[ $PartFstype =~ ext[2-4] ]]; then
@@ -203,6 +196,7 @@ while true; do
       systemctl daemon-reload
       if ! mount -a; then
         echo "erreur innatendue , annulation des modifications !"
+        umount -v /media/"$newLabel"
         rmdir -v /media/"$newLabel"
         systemctl daemon-reload
         exit 3
