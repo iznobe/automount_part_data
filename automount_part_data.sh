@@ -9,23 +9,31 @@
 # ----------------------------------------------------------------------------
 
 LC_ALL=C
+checkLabel () {
+local rgx="[^[:alnum:]_.-]"
+#local rgx="[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-]"
+(( $#==1 )) && newLabel="$1"
+if [[ $newLabel =~ $rgx || ${#newLabel} -gt 16 ]]; then
+    echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
+    unset newLabel
+    return 1
+fi
+if test -z "$1"; then
+  for i in ${!ListPart[*]}; do
+    if [[ $i == *,3 && ${ListPart[$i]} == "$newLabel" ]]; then
+      echo "Erreur, votre étiquette « $newLabel » est déjà attribuée ! Choisissez-en une autre."
+      unset newLabel
+      break
+    fi
+  done
+fi
+
+}
 
 chooseLabel() {
-  local rgx="[^[:alnum:]_-.]"
-
-  while [ -z "$newLabel" ]; do    
+  while [ -z "$newLabel" ]; do
     read -rp "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : " newLabel
-    if [[ $newLabel =~ $rgx || ${#newLabel} -gt 16 ]]; then
-      echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
-      unset newLabel
-    fi
-    for i in ${!ListPart[*]}; do
-      if [[ $i == *,3 && ${ListPart[$i]} == "$newLabel" ]]; then
-        echo "Erreur, votre étiquette « $newLabel » est déjà attribuée ! Choisissez-en une autre."
-        unset newLabel
-        break
-      fi
-    done
+    checkLabel
   done
 }
 
@@ -85,8 +93,8 @@ fi
 nbDev=$(("${#ListPart[@]}"/4))
 
 echo
-echo " n° ⇒    path    label   fstype   mountpoint"
-echo "--------------------------------------------"
+echo "  n°  ⇒    path     label     fstype     mountpoint"
+echo "-----------------------------------------------------------------"
 for (( n=0; n<nbDev; n++ )); do
   if ((n+1 < 10)); then
     echo " $((n+1))  ⇒ ${ListPart[$n,0]}   ${ListPart[$n,3]}   ${ListPart[$n,1]}   ${ListPart[$n,2]}"
@@ -108,7 +116,13 @@ Part="${ListPart[$((PartNum-1)),0]}"
 PartLabel="${ListPart[$((PartNum-1)),3]}"
 PartFstype="${ListPart[$((PartNum-1)),1]}"
 
-if [ -z "$PartLabel" ]; then
+checkLabel "$PartLabel"
+if (( $? == 1 )); then
+  echo "La partition « $Part » a l’étiquette « $PartLabel »."
+  echo "étiquette incorrecte ! vous devez choisir une étiquette valide."
+  unset newLabel
+  chooseLabel
+elif test -z "$PartLabel";then
   echo "La partition « $Part » n’a pas d’étiquette."
   chooseLabel
 else
@@ -129,7 +143,7 @@ else
     esac
   done
 fi
-
+exit
 while true; do
   read -rp "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
 
