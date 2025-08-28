@@ -14,14 +14,14 @@ local rgx="[^[:alnum:]_.-]"
 #local rgx="[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-]"
 (( $#==1 )) && newLabel="$1"
 if [[ $newLabel =~ $rgx || ${#newLabel} -gt 16 ]]; then
-    echo "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
+    err "Le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
     unset newLabel
     return 1
 fi
 if test -z "$1"; then
   for i in ${!ListPart[*]}; do
     if [[ $i == *,3 && ${ListPart[$i]} == "$newLabel" ]]; then
-      echo "Erreur, votre étiquette « $newLabel » est déjà attribuée ! Choisissez-en une autre."
+      err "votre étiquette « $newLabel » est déjà attribuée ! Choisissez-en une autre."
       unset newLabel
       break
     fi
@@ -56,8 +56,12 @@ delMountPoints() {
     done
 }
 
+err() {
+    >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
+}
+
 if ((UID)); then
-  echo "Vous devez être super utilisateur pour lancer ce script (essayez avec « sudo »)."
+  err "Vous devez être super utilisateur pour lancer ce script (essayez avec « sudo $0 »)."
   exit 1
 fi
 
@@ -107,7 +111,7 @@ echo
 while [ -z "$PartNum" ]; do
   read -rp "Choisissez le numéro correspondant à votre future partition de données : " PartNum
   if ! [[ $PartNum =~ ^[1-9][0-9]*$ ]] || ! ((PartNum > 0 && PartNum <= nbDev)); then
-    echo "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
+    err "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
     unset PartNum
   fi
 done
@@ -119,7 +123,7 @@ PartFstype="${ListPart[$((PartNum-1)),1]}"
 checkLabel "$PartLabel"
 if (( $? == 1 )); then
   echo "La partition « $Part » a l’étiquette « $PartLabel »."
-  echo "étiquette incorrecte ! vous devez choisir une étiquette valide."
+  err "étiquette incorrecte ! vous devez choisir une étiquette valide."
   unset newLabel
   chooseLabel
 elif test -z "$PartLabel";then
@@ -143,13 +147,13 @@ else
     esac
   done
 fi
-exit
+
 while true; do
   read -rp "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
 
   case "$REPLY" in
     N|n)
-      echo "Annulation par l’utilisateur !"
+      err "Annulation par l’utilisateur !"
       exit 0
     ;;
     Y|y|O|o|"")
@@ -171,7 +175,7 @@ while true; do
         read -rp "Etes-vous SÛR de vouloir procéder au montage pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
         case "$REPLY" in
           N|n)
-            echo "Annulation par l’utilisateur !"
+            err "Annulation par l’utilisateur !"
             exit 0
           ;;
           Y|y|O|o|"")
@@ -209,7 +213,7 @@ while true; do
       fi
       systemctl daemon-reload
       if ! mount -a; then
-        echo "erreur innatendue , annulation des modifications !"
+        err "innatendue , annulation des modifications !"
         umount -v /media/"$newLabel"
         rmdir -v /media/"$newLabel"
         systemctl daemon-reload
@@ -234,7 +238,7 @@ while true; do
         echo "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « /media/$newLabel/$SUDO_USER-$newLabel »."
         sudo -u "$SUDO_USER" xdg-open "/media/$newLabel/$SUDO_USER-$newLabel" >/dev/null 2>&1
       else
-        echo "Erreur inconnue !"
+        err "inconnue !"
         exit 4
       fi
       break
