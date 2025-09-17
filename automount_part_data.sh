@@ -211,7 +211,7 @@ while true; do
         if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab; fi
       elif [[ $PartFstype =~ ^ntfs ]]; then
         ntfslabel  "$Part" "$newLabel"
-        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab;fi
+        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab;fi
       fi
       if ! [ -d /media/"$newLabel" ]; then
         mkdir -v /media/"$newLabel"
