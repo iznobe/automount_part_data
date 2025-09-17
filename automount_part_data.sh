@@ -68,7 +68,7 @@ if ((UID)); then
 fi
 
 declare -A ListPart
-declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs.)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
+declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 
 i=-1
 
@@ -209,9 +209,9 @@ while true; do
       if [[ $PartFstype =~ ^ext[2-4] ]]; then
         e2label "$Part" "$newLabel"
         if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab; fi
-      elif [[ $PartFstype =~ ^ntfs. ]]; then
+      elif [[ $PartFstype =~ ^ntfs ]]; then
         ntfslabel  "$Part" "$newLabel"
-        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab;fi
+        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab;fi
       fi
       if ! [ -d /media/"$newLabel" ]; then
         mkdir -v /media/"$newLabel"
