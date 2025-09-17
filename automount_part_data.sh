@@ -68,11 +68,11 @@ if ((UID)); then
 fi
 
 declare -A ListPart
-declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
+declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs[-3])" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 
 i=-1
 
-while read -ra lsblkDT; do #path fstype mountpoint label
+while read -ra lsblkDT; do #path fstype hotplug mountpoint label
   if [[ ${lsblkDT[1]} =~ ${Rgx[fstype]} ]]; then
     if [[ ${lsblkDT[2]} =~ ${Rgx[mountP]} ]]; then
       continue
@@ -80,32 +80,33 @@ while read -ra lsblkDT; do #path fstype mountpoint label
       ((++i))
       ListPart[$i,0]="${lsblkDT[0]}"
       ListPart[$i,1]="${lsblkDT[1]}"
-      if [[ ${lsblkDT[2]} =~ ^/ ]]; then
-        ListPart[$i,2]="${lsblkDT[2]}"
+      ListPart[$i,2]="${lsblkDT[2]}"
+      if [[ ${lsblkDT[3]} =~ ^/ ]]; then # si mount point
         ListPart[$i,3]="${lsblkDT[3]}"
-      else
-        ListPart[$i,2]=""
-        ListPart[$i,3]="${lsblkDT[2]}"
+        ListPart[$i,4]="${lsblkDT[4]}"
+      else # si mount point est vide on decale la sortie avec une colonne en moins
+        ListPart[$i,3]=""
+        ListPart[$i,4]="${lsblkDT[3]}"
       fi
     fi
   fi
-done < <(lsblk -no path,fstype,mountpoint,label)
+done < <(lsblk -no path,fstype,hotplug,mountpoint,label)
 
 if ((${#ListPart[@]} == 0)); then
   err "il n’y a pas de partition susceptible d’être montée."
   exit 2
 fi
 
-nbDev=$(("${#ListPart[@]}"/4))
+nbDev=$(("${#ListPart[@]}"/5))
 
 echo
-echo "  n°  ⇒    path     label     fstype     mountpoint"
-echo "-----------------------------------------------------------------"
+echo "  n°  ⇒    path     label     fstype     mountpoint     externe / interne"
+echo "-----------------------------------------------------------------------------"
 for (( n=0; n<nbDev; n++ )); do
   if ((n+1 < 10)); then
-    echo " $((n+1))  ⇒ ${ListPart[$n,0]}   ${ListPart[$n,3]}   ${ListPart[$n,1]}   ${ListPart[$n,2]}"
+    echo " $((n+1))  ⇒ ${ListPart[$n,0]}   ${ListPart[$n,4]}   ${ListPart[$n,1]}   ${ListPart[$n,3]}   ${ListPart[$n,2]}"
   else
-    echo " $((n+1)) ⇒ ${ListPart[$n,0]}   ${ListPart[$n,3]}   ${ListPart[$n,1]}   ${ListPart[$n,2]}"
+    echo " $((n+1)) ⇒ ${ListPart[$n,0]}   ${ListPart[$n,4]}   ${ListPart[$n,1]}   ${ListPart[$n,3]}   ${ListPart[$n,2]}"
   fi
 done
 echo
@@ -119,10 +120,9 @@ while [ -z "$PartNum" ]; do
 done
 
 Part="${ListPart[$((PartNum-1)),0]}"
-PartLabel="${ListPart[$((PartNum-1)),3]}"
 PartFstype="${ListPart[$((PartNum-1)),1]}"
-
-
+PartPlug="${ListPart[$((PartNum-1)),2]}"
+PartLabel="${ListPart[$((PartNum-1)),4]}"
 
 if test -z "$PartLabel";then
   echo "La partition « $Part » n’a pas d’étiquette."
@@ -206,12 +206,12 @@ while true; do
       sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
 
       # construction des éléments :
-      if [[ $PartFstype =~ ext[2-4] ]]; then
+      if [[ $PartFstype =~ ^ext[2-4] ]]; then
         e2label "$Part" "$newLabel"
-        echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab
-      elif [ "$PartFstype" == "ntfs" ]; then
+        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab; fi
+      elif [[ $PartFstype =~ ^ntfs ]]; then
         ntfslabel  "$Part" "$newLabel"
-        echo "LABEL=$newLabel /media/$newLabel ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
+        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab;fi
       fi
       if ! [ -d /media/"$newLabel" ]; then
         mkdir -v /media/"$newLabel"
