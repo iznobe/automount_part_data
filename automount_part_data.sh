@@ -99,8 +99,8 @@ fi
 
 nbDev=$(("${#ListPart[@]}"/5))
 
-echo             # 0        4         1          3              2
-echo "  n°  ⇒    path     label     fstype     mountpoint     externe / interne"
+          echo             # 0        4         1          3              2
+          echo "  n°  ⇒    path     label     fstype     mountpoint     externe / interne"
 echo "-----------------------------------------------------------------------------"
 for (( n=0; n<nbDev; n++ )); do
   if ((n+1 < 10)); then
@@ -209,7 +209,7 @@ while true; do
       if [[ $PartFstype =~ ^ext[2-4] ]]; then
         e2label "$Part" "$newLabel"
         if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab; fi
-      elif [[ $PartFstype =~ ^ntfs ]]; then
+      elif [[ $PartFstype =~ ^ntfs. ]]; then
         ntfslabel  "$Part" "$newLabel"
         if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab;fi
       fi
