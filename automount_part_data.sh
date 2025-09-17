@@ -68,7 +68,7 @@ if ((UID)); then
 fi
 
 declare -A ListPart
-declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs[-3])" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
+declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs.)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 
 i=-1
 
@@ -78,15 +78,15 @@ while read -ra lsblkDT; do #path fstype hotplug mountpoint label
       continue
     else
       ((++i))
-      ListPart[$i,0]="${lsblkDT[0]}"
-      ListPart[$i,1]="${lsblkDT[1]}"
-      ListPart[$i,2]="${lsblkDT[2]}"
-      if [[ ${lsblkDT[3]} =~ ^/ ]]; then # si mount point
-        ListPart[$i,3]="${lsblkDT[3]}"
-        ListPart[$i,4]="${lsblkDT[4]}"
+      ListPart[$i,0]="${lsblkDT[0]}" # path
+      ListPart[$i,1]="${lsblkDT[1]}" # fstype
+      ListPart[$i,2]="${lsblkDT[2]}" # hotplug
+      if [[ ${lsblkDT[3]} =~ ^/ ]]; then # si mount point non vide
+        ListPart[$i,3]="${lsblkDT[3]}" # mountpoint
+        ListPart[$i,4]="${lsblkDT[4]}" # label
       else # si mount point est vide on decale la sortie avec une colonne en moins
-        ListPart[$i,3]=""
-        ListPart[$i,4]="${lsblkDT[3]}"
+        ListPart[$i,3]="             " # mountpoint vide
+        ListPart[$i,4]="${lsblkDT[3]}" # label passe en indice 3 à la place du mountpoint
       fi
     fi
   fi
@@ -99,7 +99,7 @@ fi
 
 nbDev=$(("${#ListPart[@]}"/5))
 
-echo
+echo             # 0        4         1          3              2
 echo "  n°  ⇒    path     label     fstype     mountpoint     externe / interne"
 echo "-----------------------------------------------------------------------------"
 for (( n=0; n<nbDev; n++ )); do
