@@ -219,6 +219,7 @@ while true; do
       systemctl daemon-reload
       if ! mount -a; then
         err "inattendue , annulation des modifications !"
+        sed -i '$d' /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
         umount -v /media/"$newLabel"
         rmdir -v /media/"$newLabel"
         systemctl daemon-reload
