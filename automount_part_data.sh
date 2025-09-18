@@ -68,7 +68,7 @@ if ((UID)); then
 fi
 
 declare -A ListPart
-declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$s" )
+declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 
 i=-1
 
@@ -209,9 +209,9 @@ while true; do
       if [[ $PartFstype =~ ^ext[2-4] ]]; then
         e2label "$Part" "$newLabel"
         if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab; fi
-      elif [[ $PartFstype =~ ^ntfs ]]; then
+      elif [ $PartFstype == "ntfs" ]; then
         ntfslabel  "$Part" "$newLabel"
-        if ((PartPlug==0)); then
+        if ((PartPlug==0)); then # partition interne
           if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
             echo "LABEL=$newLabel /media/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
           else
