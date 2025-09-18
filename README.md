@@ -1,7 +1,7 @@
 # automount_part_data
 mount a partition in format " EXT[2-3-4] " or " NTFS  automatically .
 
-This is a script that mounts an "EXT2/3/4" or "NTFS" format partition at each boot.
+This is a script that mounts an "EXT2/3/4" or "NTFS" format partition at each boot if disk is not hotplugable .
 it modifies the /etc/fstab file and all the necessary commands to obtain a folder that is readable and writable by the current user, with the "LABEL" of his choice.
 
 For example, if I choose the LABEL: ‘Data’, then in the end I can write, create folders, in short anything I want, in the following folder: /media/Data/iznobe-Data.
