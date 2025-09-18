@@ -211,7 +211,13 @@ while true; do
         if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab; fi
       elif [[ $PartFstype =~ ^ntfs ]]; then
         ntfslabel  "$Part" "$newLabel"
-        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel ntfs3 defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab;fi
+        if ((PartPlug==0)); then
+          if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
+            echo "LABEL=$newLabel /media/$newLabel ntfs3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
+          else
+            echo "LABEL=$newLabel /media/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
+          fi
+        fi
       fi
       if ! [ -d /media/"$newLabel" ]; then
         mkdir -v /media/"$newLabel"
@@ -219,7 +225,7 @@ while true; do
       systemctl daemon-reload
       if ! mount -a; then
         err "inattendue , annulation des modifications !"
-        sed -i '$d' /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
+        mv /etc/fstab.BaK /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
         umount -v /media/"$newLabel"
         rmdir -v /media/"$newLabel"
         systemctl daemon-reload
