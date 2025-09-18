@@ -1,5 +1,5 @@
 # automount_part_data
-mount a partition in format " EXT[2-3-4] " or " NTFS  automatically every time you start your computer .
+mount a partition in format " EXT[2-3-4] " or " NTFS  automatically .
 
 This is a script that mounts an "EXT2/3/4" or "NTFS" format partition at each boot.
 it modifies the /etc/fstab file and all the necessary commands to obtain a folder that is readable and writable by the current user, with the "LABEL" of his choice.
