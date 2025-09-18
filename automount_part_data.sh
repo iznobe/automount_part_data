@@ -99,14 +99,14 @@ fi
 
 nbDev=$(("${#ListPart[@]}"/5))
 
-          echo             # 0        4         1          3              2
-          echo "  n°  ⇒    path     label     fstype     mountpoint     externe / interne"
+          echo             # 0        1                 2             3          4
+          echo "  n°  ⇒    path     fstype     externe / interne     label     mountpoint"
 echo "-----------------------------------------------------------------------------"
 for (( n=0; n<nbDev; n++ )); do
   if ((n+1 < 10)); then
-    echo " $((n+1))  ⇒ ${ListPart[$n,0]}   ${ListPart[$n,4]}   ${ListPart[$n,1]}   ${ListPart[$n,3]}   ${ListPart[$n,2]}"
+    echo " $((n+1))  ⇒ ${ListPart[$n,0]}   ${ListPart[$n,1]}   ${ListPart[$n,2]}   ${ListPart[$n,3]}   ${ListPart[$n,4]}"
   else
-    echo " $((n+1)) ⇒ ${ListPart[$n,0]}   ${ListPart[$n,4]}   ${ListPart[$n,1]}   ${ListPart[$n,3]}   ${ListPart[$n,2]}"
+    echo " $((n+1)) ⇒ ${ListPart[$n,0]}   ${ListPart[$n,1]}   ${ListPart[$n,2]}   ${ListPart[$n,3]}   ${ListPart[$n,4]}"
   fi
 done
 echo
@@ -225,7 +225,7 @@ while true; do
       systemctl daemon-reload
       if ! mount -a; then
         err "inattendue , annulation des modifications !"
-        mv /etc/fstab.BaK /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
+        mv -v /etc/fstab.BaK /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
         umount -v /media/"$newLabel"
         rmdir -v /media/"$newLabel"
         systemctl daemon-reload
