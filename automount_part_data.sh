@@ -99,14 +99,14 @@ fi
 
 nbDev=$(("${#ListPart[@]}"/5))
 
-          echo             # 0        1                 2             3          4
-          echo "  n°  ⇒    path     fstype     externe / interne     label     mountpoint"
+          echo             # 0        1           2             3             4
+          echo "  n°  ⇒    path     fstype  externe/interne     mountpoint    label"
 echo "-----------------------------------------------------------------------------"
 for (( n=0; n<nbDev; n++ )); do
   if ((n+1 < 10)); then
-    echo "  $((n+1))   ⇒ ${ListPart[$n,0]}    ${ListPart[$n,1]}            ${ListPart[$n,2]}      ${ListPart[$n,3]}      ${ListPart[$n,4]}"
+    echo "  $((n+1))   ⇒ ${ListPart[$n,0]}    ${ListPart[$n,1]}           ${ListPart[$n,2]}       ${ListPart[$n,3]}      ${ListPart[$n,4]}"
   else
-    echo "  $((n+1))  ⇒ ${ListPart[$n,0]}    ${ListPart[$n,1]}            ${ListPart[$n,2]}      ${ListPart[$n,3]}      ${ListPart[$n,4]}"
+    echo "  $((n+1))  ⇒ ${ListPart[$n,0]}    ${ListPart[$n,1]}           ${ListPart[$n,2]}       ${ListPart[$n,3]}      ${ListPart[$n,4]}"
   fi
 done
 echo
