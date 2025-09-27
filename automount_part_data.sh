@@ -74,7 +74,7 @@ i=-1
 
 while read -ra lsblkDT; do #path fstype hotplug mountpoint label
   if [[ ${lsblkDT[1]} =~ ${Rgx[fstype]} ]]; then
-    if [[ ${lsblkDT[2]} =~ ${Rgx[mountP]} ]]; then
+    if [[ ${lsblkDT[3]} =~ ${Rgx[mountP]} ]]; then
       continue
     else
       ((++i))
