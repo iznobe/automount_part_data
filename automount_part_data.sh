@@ -200,7 +200,7 @@ while true; do
       mapfile -t mountedParts < <(grep "$Part" /etc/mtab | cut -d ' ' -f 2)
       delMountPoints mountedParts
       # traitement des partitions NON montées
-      mapfile -t unmountedParts < <(grep -E "^(LABEL=|/dev/disk/by-label/)$PartLabel" /etc/fstab | cut -d ' ' -f 2)
+      mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'[[:space:]]/{print $2}' /etc/fstab)
       delMountPoints unmountedParts
       sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
       sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
