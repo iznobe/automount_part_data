@@ -55,7 +55,7 @@ delMountPoints() {
                 echo "$part a été conservé."
             fi
         fi
-        mapfile -t numLines < <(grep -n "$part" /etc/fstab | cut -d ":" -f 1 | sort -rn)
+        mapfile -t numLines < <(grep -En "$part"[[:space:]] /etc/fstab | cut -d ":" -f 1 | sort -rn)
         for n in "${numLines[@]}"; do
             sed -i "${n}d" /etc/fstab
         done
