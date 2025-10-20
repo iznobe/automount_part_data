@@ -14,9 +14,20 @@ err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
 }
 
+blue() {
+  >&2 echo -e "\\033[1;34m  $* \\033[0;0m"
+}
+
+sav_file() {
+  if [ -f "$1" ]; then
+    if [ "$2" = "u" ]; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
+    else cp -v "$1"  "$1".BaK"$now_time"; fi
+    echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
+  fi
+}
+
 checkLabel() {
-test -n $1 || exit
-#local rgx="[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-]"
+test -n "$1" || exit
 local rgx="[^[:alnum:]_.-]"
 if [[ $1 =~ $rgx || ${#1} -gt 16 ]]; then
     unset PartLabel
@@ -34,7 +45,7 @@ chooseLabel() {
       unset newLabel
     fi
     for i in ${!ListPart[*]}; do
-      if [[ $i == *,3 && ${ListPart[$i]} == "$newLabel" ]]; then
+      if [[ $i == *,3 && ${ListPart[$i]} = "$newLabel" ]]; then
         err "votre étiquette « $newLabel » est déjà attribuée ! Choisissez-en une autre."
         unset newLabel
         break
@@ -67,10 +78,27 @@ if ((UID)); then
   exit 1
 fi
 
+now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
+home="/home/$SUDO_USER"
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
-
 i=-1
+
+while true; do
+  read -rp "Voulez-vous utiliser le dossier « /media » pour monter la partition , si non ce sera « /mnt »  [O/n]"
+  case "$REPLY" in
+    N|n)
+      Mount="/mnt"
+      break
+    ;;
+    Y|y|O|o|"")
+      Mount="/media"
+      break
+    ;;
+    *) err "choix invalide";;
+  esac
+done
+blue "Votre choix : $Mount"
 
 while read -ra lsblkDT; do #path fstype hotplug mountpoint label
   if [[ ${lsblkDT[1]} =~ ${Rgx[fstype]} ]]; then
@@ -114,7 +142,7 @@ echo
 while [ -z "$PartNum" ]; do
   read -rp "Choisissez le numéro correspondant à votre future partition de données : " PartNum
   if ! [[ $PartNum =~ ^[1-9][0-9]*$ ]] || ! ((PartNum > 0 && PartNum <= nbDev)); then
-    err "votre choix doit être un nombre entier compris entre 1 et $nbDev."
+    err "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
     unset PartNum
   fi
 done
@@ -123,6 +151,8 @@ Part="${ListPart[$((PartNum-1)),0]}"
 PartFstype="${ListPart[$((PartNum-1)),1]}"
 PartPlug="${ListPart[$((PartNum-1)),2]}"
 PartLabel="${ListPart[$((PartNum-1)),4]}"
+
+blue "Votre choix : $PartNum = « $Part »"
 
 if test -z "$PartLabel";then
   echo "La partition « $Part » n’a pas d’étiquette."
@@ -146,16 +176,15 @@ else
           chooseLabel
           break
         ;;
-        *)
-        ;;
+        *) err "choix invalide";;
       esac
     done
+    blue "Votre choix : $REPLY"
   fi
 fi
 
 while true; do
-  read -rp "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
-
+  read -rp "Voulez-vous procéder au montage maintenant pour la partition « $Part » en y mettant pour étiquette « $newLabel » dans le dossier « $Mount » ? [O/n] "
   case "$REPLY" in
     N|n)
       err "Annulation par l’utilisateur !"
@@ -164,19 +193,19 @@ while true; do
     Y|y|O|o|"")
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo "L’UUID de la partition est déjà présent dans le fstab !"
-        echo "le fichier /etc/fstab sera mis à jour si vous poursuivez"
         q=1
-      elif grep -Eq "(LABEL=|/dev/disk/by-label/)$newLabel" /etc/fstab; then
+      elif grep -Eq "(LABEL=|/dev/disk/by-label/)$newLabel([[:space:]])" /etc/fstab; then
         echo "L’étiquette « $newLabel » est déjà utilisée dans le fstab !"
-        echo "le fichier /etc/fstab sera mis à jour si vous poursuivez"
         q=1
       elif grep -q "^$Part" /etc/mtab; then
         echo "La partition « $Part » est déjà montée !"
-        echo "la partition sera démontée , le fichier /etc/fstab sera mis à jour si vous poursuivez"
         q=1
       fi
 
-      while ((q=1)); do
+      sav_file "/etc/fstab"
+
+      while (("$q" == 1)); do
+        echo "le fichier /etc/fstab sera mis à jour si vous poursuivez"
         read -rp "Etes-vous SÛR de vouloir procéder au montage pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
         case "$REPLY" in
           N|n)
@@ -184,79 +213,89 @@ while true; do
             exit 0
           ;;
           Y|y|O|o|"")
+            # nettoyage
+            # traitement des partitions montées
+            mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
+            # traitement des partitions NON montées
+            mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'([[:space:]])/{print $2}' /etc/fstab)
+            delMountPoints mountedParts unmountedParts
+            sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
+            sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
             break
           ;;
-          *)
-          ;;
+          *) err "choix invalide";;
         esac
       done
-
-      # sauvegarde
-      echo "sauvegarde du fichier « /etc/fstab » en « /etc/fstab.BaK » avant modifications"
-      cp /etc/fstab /etc/fstab.BaK
-
-      # nettoyage
-      # traitement des partitions montées
-      mapfile -t mountedParts < <(grep "$Part" /etc/mtab | cut -d ' ' -f 2)
-      delMountPoints mountedParts
-      # traitement des partitions NON montées
-      mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'[[:space:]]/{print $2}' /etc/fstab)
-      delMountPoints unmountedParts
-      sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
-      sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
+      blue "Votre choix : oui"
 
       # construction des éléments :
       if [[ $PartFstype =~ ^ext[2-4] ]]; then
         e2label "$Part" "$newLabel"
-        if ((PartPlug==0)); then echo "LABEL=$newLabel /media/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" >> /etc/fstab; fi
-      elif [ $PartFstype == "ntfs" ]; then
+        if ((PartPlug == 0)); then # partition interne
+          echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults" | tee -a /etc/fstab
+        else # partition externe EXT2/3/4
+          echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" | tee -a /etc/fstab
+        fi
+      elif [ "$PartFstype" = "ntfs" ]; then
         ntfslabel  "$Part" "$newLabel"
-        if ((PartPlug==0)); then # partition interne
+        if ((PartPlug == 0)); then # partition interne
           if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
-            echo "LABEL=$newLabel /media/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
           else
-            echo "LABEL=$newLabel /media/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" >> /etc/fstab
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+          fi
+        else # partition externe NTFS
+          if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+          else
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
           fi
         fi
       fi
-      if ! [ -d /media/"$newLabel" ]; then
-        mkdir -v /media/"$newLabel"
+
+      part_data_path="$Mount/$newLabel"
+      if ! [ -d "$part_data_path" ]; then
+        mkdir -v "$part_data_path"
       fi
       systemctl daemon-reload
       if ! mount -a; then
         err "inattendue , annulation des modifications !"
-        mv -v /etc/fstab.BaK /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
-        umount -v /media/"$newLabel"
-        rmdir -v /media/"$newLabel"
+        mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
         systemctl daemon-reload
+        sleep 1
+        umount -v "$part_data_path"
+        rmdir -v "$part_data_path"
         exit 3
       fi
 
-      if ! [ -d /media/"$newLabel"/"$SUDO_USER"-"$newLabel" ]; then
-        mkdir -v /media/"$newLabel"/"$SUDO_USER"-"$newLabel"
+      part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
+      if ! [ -d "$part_data_user_dir" ]; then
+        mkdir -v "$part_data_user_dir"
       fi
-      chown -c "$SUDO_USER": /media/"$newLabel"/"$SUDO_USER"-"$newLabel"
-      if ! [ -d /media/"$newLabel"/.Trash-"$SUDO_UID" ]; then
-        mkdir -v /media/"$newLabel"/.Trash-"$SUDO_UID"
-      fi
-      chown -c "$SUDO_USER": /media/"$newLabel"/.Trash-"$SUDO_UID"
-      chmod -c 700 /media/"$newLabel"/.Trash-"$SUDO_UID"
+      chown -c "$SUDO_USER": "$part_data_user_dir"
 
-      if [ -d /media/"$newLabel"/.Trash-"$SUDO_UID" ]; then
+      trash_user_dir="$part_data_path"/.Trash-"$SUDO_UID"
+      if ! [ -d "$trash_user_dir" ]; then
+        mkdir -v "$trash_user_dir"
+      fi
+      chown -c "$SUDO_USER": "$trash_user_dir"
+      chmod -c 700 "$trash_user_dir"
+
+      if [ -d "$trash_user_dir" ]; then
         echo
         echo "Création de la corbeille réussie"
-        echo "-----------------------------------------------------------------"
-        echo -e "\\033[1;34m Script pour montage de partition de données terminé avec succès ! \\033[0;0m"
+        blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
-        echo -e "\\033[1;34m Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « /media/$newLabel/$SUDO_USER-$newLabel » . \\033[0;0m"
-        sudo -u "$SUDO_USER" xdg-open "/media/$newLabel/$SUDO_USER-$newLabel" >/dev/null 2>&1
+        echo "-----------------------------------------------------------------"
+        echo
       else
         err "inconnue !"
         exit 4
       fi
       break
     ;;
-    *)
-    ;;
+    *) err "choix invalide";;
   esac
 done
+
+blue "Script pour montage de partition de données terminé avec succès !"
