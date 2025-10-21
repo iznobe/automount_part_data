@@ -191,6 +191,7 @@ while true; do
       exit 0
     ;;
     Y|y|O|o|"")
+      blue "Votre choix : oui"
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
         echo "L’UUID de la partition est déjà présent dans le fstab !"
         q=1
@@ -213,6 +214,7 @@ while true; do
             exit 0
           ;;
           Y|y|O|o|"")
+            blue "Votre choix : oui"
             # nettoyage
             # traitement des partitions montées
             mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
@@ -226,7 +228,7 @@ while true; do
           *) err "choix invalide";;
         esac
       done
-      blue "Votre choix : oui"
+      
 
       # construction des éléments :
       if [[ $PartFstype =~ ^ext[2-4] ]]; then
