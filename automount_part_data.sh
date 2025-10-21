@@ -19,11 +19,10 @@ blue() {
 }
 
 sav_file() {
-  if [ -f "$1" ]; then
-    if [ "$2" = "u" ]; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
-    else cp -v "$1"  "$1".BaK"$now_time"; fi
-    echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
-  fi
+  test -n "$1" || exit
+  echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
+  if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
+  else cp -v "$1"  "$1".BaK"$now_time"; fi
 }
 
 checkLabel() {
@@ -38,7 +37,7 @@ fi
 chooseLabel() {
   local rgx="[^[:alnum:]_.-]"
 
-  while [ -z "$newLabel" ]; do
+  while test -z "$newLabel"; do
     read -rp "Choisissez l’étiquette (LABEL) de votre partition de données, elle doit être UNIQUE et ne pas contenir d’espace, d’accent, de caractères spéciaux et au maximum 16 caractères : " newLabel
     if [[ $newLabel =~ $rgx || ${#newLabel} -gt 16 ]]; then
       err "le nom de votre étiquette comporte une espace, un accent ou un caractère spécial ou plus de 16 caractères !"
@@ -51,6 +50,7 @@ chooseLabel() {
         break
       fi
     done
+    blue "Vous avez entré $newLabel"
   done
 }
 
@@ -59,7 +59,7 @@ delMountPoints() {
     declare -n parts=$1
     for part in "${parts[@]}"; do
         if test "$1" = 'mountedParts'; then umount -v "$part"; fi
-        if [ -d "$part" ]; then
+        if test -d "$part"; then
             if [[ $part =~ $rgx ]]; then
                 rmdir -v "$part"
             else
@@ -86,7 +86,7 @@ i=-1
 q=0
 
 while true; do
-  read -rp "Voulez-vous utiliser le dossier « /media » pour monter la partition , si non ce sera « /mnt »  [O/n]"
+  read -rp "Voulez-vous utiliser le dossier « /media » pour monter la partition , si non , ce sera « /mnt »  [O/n]"
   case "$REPLY" in
     N|n)
       Mount="/mnt"
@@ -140,7 +140,7 @@ for (( n=0; n<nbDev; n++ )); do
 done
 echo
 
-while [ -z "$PartNum" ]; do
+while test -z "$PartNum"; do
   read -rp "Choisissez le numéro correspondant à votre future partition de données : " PartNum
   if ! [[ $PartNum =~ ^[1-9][0-9]*$ ]] || ! ((PartNum > 0 && PartNum <= nbDev)); then
     err "Votre choix doit être un nombre entier compris entre 1 et $nbDev."
@@ -170,17 +170,18 @@ else
       read -rp "Voulez-vous changer l’étiquette de la partition « $Part » ? [O/n] "
       case "$REPLY" in
         N|n)
+          blue "Votre choix : non"
           newLabel="$PartLabel"
           break
         ;;
         Y|y|O|o|"")
+          blue "Votre choix : oui"
           chooseLabel
           break
         ;;
         *) err "choix invalide";;
       esac
     done
-    blue "Votre choix : $REPLY"
   fi
 fi
 
@@ -239,7 +240,7 @@ while true; do
         else # partition externe EXT2/3/4
           echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" | tee -a /etc/fstab
         fi
-      elif [ "$PartFstype" = "ntfs" ]; then
+      elif test "$PartFstype" = "ntfs"; then
         ntfslabel  "$Part" "$newLabel"
         if ((PartPlug == 0)); then # partition interne
           if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
@@ -257,9 +258,7 @@ while true; do
       fi
 
       part_data_path="$Mount/$newLabel"
-      if ! [ -d "$part_data_path" ]; then
-        mkdir -v "$part_data_path"
-      fi
+      ! test -d "$part_data_path" && mkdir -v "$part_data_path"
       systemctl daemon-reload
       if ! mount -a; then
         err "inattendue , annulation des modifications !"
@@ -272,19 +271,15 @@ while true; do
       fi
 
       part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
-      if ! [ -d "$part_data_user_dir" ]; then
-        mkdir -v "$part_data_user_dir"
-      fi
+      ! test -d "$part_data_user_dir" && mkdir -v "$part_data_user_dir"
       chown -c "$SUDO_USER": "$part_data_user_dir"
 
       trash_user_dir="$part_data_path"/.Trash-"$SUDO_UID"
-      if ! [ -d "$trash_user_dir" ]; then
-        mkdir -v "$trash_user_dir"
-      fi
+      ! test -d "$trash_user_dir" && mkdir -v "$trash_user_dir"
       chown -c "$SUDO_USER": "$trash_user_dir"
       chmod -c 700 "$trash_user_dir"
 
-      if [ -d "$trash_user_dir" ]; then
+      if test -d "$trash_user_dir"; then
         echo
         echo "Création de la corbeille réussie"
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
