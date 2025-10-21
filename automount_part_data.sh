@@ -83,6 +83,7 @@ home="/home/$SUDO_USER"
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 i=-1
+q=0
 
 while true; do
   read -rp "Voulez-vous utiliser le dossier « /media » pour monter la partition , si non ce sera « /mnt »  [O/n]"
