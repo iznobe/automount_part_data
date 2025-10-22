@@ -342,22 +342,21 @@ for elem in "$home"/*; do
     if test  -L "$elem"; then echo " ! $dir_name est un lien pas de modification"; continue;fi
     if [[ "$dir_name" =~ ^\. ]]; then echo " ! dossier non traité : $dir_name !"; continue;fi
     # deplacement des dossiers
-    echo "traitement du dossier $dir_name"
-    sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"
+    echo "traitement du dossier « $dir_name » en cours ..."
+      sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"
 
     # traitement XDG
     if test -f "$xdg_conf_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
       for num in "${numLines[@]}"; do
-        xdg_var_name=(awk -F'[="]' '/^XDG/{print $1}' "$xdg_conf_file")
-        xdg_name="${xdg_var_name:4 :-4}"
+        xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
         # suppresion ancienne config
-        sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
+          sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
         echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
         # Construction des éléments :
-        echo " traitement de la variable « ${xdg_name[num]} » en cours ..."
-        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_name[num]}"  "$part_data_user_dir/$dir_name")
-        #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "${xdg_name[num]} => $part_data_user_dir/$dir_name")
+        echo " traitement de la variable « $xdg_var_name » en cours ..."
+          (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name")
+          #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name")
       done
     else
       err "pas de fichier .config/user-dirs.dirs !"
@@ -369,18 +368,20 @@ for elem in "$home"/*; do
       # suppresion ancienne config
       for num in "${numLines[@]}"; do
         echo "suppression de la ligne ${num} dans le fichier $book_file"
-        sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
+          sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
       done
       # Construction des éléments :
       echo " traitement du marque-page « $dir_name » en cours ..."
-      (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name" | tee -a "$book_file")
-      #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name")
+        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name" | tee -a "$book_file")
+        #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name")
+
+    # elif test -f "$xbel_file"; then
+    # xbel_file="$home/.local/share/user-places.xbel"
+    # TODO bookmarks for QT's DE ...
     else
         err "pas de fichier .config/user-dirs.dirs !"
     fi
-  # elif test -f "$xbel_file"; then
-    # xbel_file="$home/.local/share/user-places.xbel"
-    # TODO bookmarks for QT's DE ...
+
   fi
 
 done
