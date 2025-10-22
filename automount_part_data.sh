@@ -355,7 +355,7 @@ for elem in "$home"/*; do
         sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
         echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
         # Construction des éléments :
-        echo " traitement de la variable « ${xdg_var_name[num]} » en cours ..."
+        echo " traitement de la variable « ${xdg_name[num]} » en cours ..."
         (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_name[num]}"  "$part_data_user_dir/$dir_name")
         #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "${xdg_var_name[num]} => $part_data_user_dir/$dir_name")
       done
