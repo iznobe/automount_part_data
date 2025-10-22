@@ -357,7 +357,7 @@ for elem in "$home"/*; do
         # Construction des éléments :
         echo " traitement de la variable « ${xdg_name[num]} » en cours ..."
         (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_name[num]}"  "$part_data_user_dir/$dir_name")
-        #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "${xdg_var_name[num]} => $part_data_user_dir/$dir_name")
+        #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "${xdg_name[num]} => $part_data_user_dir/$dir_name")
       done
     else
       err "pas de fichier .config/user-dirs.dirs !"
