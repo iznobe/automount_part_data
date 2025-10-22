@@ -350,12 +350,13 @@ for elem in "$home"/*; do
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
       for num in "${numLines[@]}"; do
         xdg_var_name=(awk -F'[="]' '/^XDG/{print $1}' "$xdg_conf_file")
+        xdg_name="${xdg_var_name:4 :-4}"
         # suppresion ancienne config
         sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
         echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
         # Construction des éléments :
         echo " traitement de la variable « ${xdg_var_name[num]} » en cours ..."
-        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name[num]}"  "$part_data_user_dir/$dir_name")
+        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_name[num]}"  "$part_data_user_dir/$dir_name")
         #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "${xdg_var_name[num]} => $part_data_user_dir/$dir_name")
       done
     else
