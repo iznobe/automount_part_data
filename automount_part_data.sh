@@ -8,7 +8,10 @@
 # retour.
 # ----------------------------------------------------------------------------
 
+
 LC_ALL=C
+now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
+echo -e "$now_time"  >> "$home"/automount.log
 
 err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
@@ -20,9 +23,15 @@ blue() {
 
 sav_file() {
   test -n "$1" || exit
+  echo -e "$1" >> "$home"/automount.log && cat -n "$1" >> "$home"/automount.log
   echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
   if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
   else cp -v "$1"  "$1".BaK"$now_time"; fi
+}
+
+log_file() {
+  test -n "$1" || exit
+  echo -e "$1 apres modifications :" >> "$home"/automount.log && cat -n "$1" >> "$home"/automount.log
 }
 
 checkLabel() {
@@ -78,7 +87,7 @@ if ((UID)); then
   exit 1
 fi
 
-now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
+
 home="/home/$SUDO_USER"
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
@@ -256,6 +265,7 @@ while true; do
           fi
         fi
       fi
+      log_file "/etc/fstab"
 
       part_data_path="$Mount/$newLabel"
       ! test -d "$part_data_path" && mkdir -v "$part_data_path"
@@ -296,4 +306,102 @@ while true; do
   esac
 done
 
+while true; do
+  read -rp "Voulez-vous deplacer TOUTES vos données utilisateur dans la partition « $Part » qui vient d' être montée sur : « $part_data_user_dir » ?
+  cette action peut durer très longtemps, ne pas interrompre pour éviter la perte des données . soyez patient svp !
+  Lancer le déplacement des données maintenant ?  [O/n]"
+  case "$REPLY" in
+    N|n)
+      err "Annulation par l’utilisateur !"
+      exit 0
+    ;;
+    Y|y|O|o|"")
+      blue "Votre choix : oui"
+      break
+    ;;
+    *) err "choix invalide";;
+  esac
+done
+
+# creer un lien pour chaque dossier deplacé :
+for elem in "$home"/*; do
+  if test -d "$elem"; then
+    dir_name=${elem##*/}
+    if test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp" -o -L "$elem"; then echo " ! dossier non traité : $dir_name !"; continue;fi
+    if [[ "$dir_name" =~ ^\. ]]; then echo " ! dossier non traité : $dir_name !"; continue;fi
+    sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"
+  fi
+done
+
+# traitement XDG
+xdg_conf_file="$home/.config/user-dirs.dirs"
+sav_file "$xdg_conf_file" "u"
+
+if test -f "$xdg_conf_file"; then
+  declare -A ListDir
+  i=-1
+
+  #Récuperation des éléments :
+  while read -ra xdg_dirs; do
+    # pré-traitement des variables
+    t_car=$((6+${#SUDO_USER})) # 6 pour : /home/ ( nombre de caracteres total pour /home/$USER )    
+    xdg_dir_name="${xdg_dirs[1]##*/}"
+    xdg_var_name=${xdg_dirs[0]:4 :-4}
+    if test "$xdg_dir_name" = '$HOME'; then xdg_dir_name=""; fi
+    if test "${xdg_dirs[1]::5}" = '$HOME'; then
+      xdg_path="$home/$xdg_dir_name"
+    else
+      xdg_path="${xdg_dirs[1]}"
+    fi
+    # pré-traitement des données stockées dans le tableau
+    if test "${xdg_path::$t_car}" != "$home" -o -L "$xdg_path"; then # si le dossier ne commence pas par /home/$USER ou si c' est un lien , on ne fait rien.
+      echo "la variable $xdg_var_name ayant pour chemin : $xdg_path ne sera pas traitée."
+      continue
+    else # on traitera le cas
+      echo "la variable $xdg_var_name ayant pour chemin : $xdg_path sera modifiée ."
+      ((++i))
+      ListDir[$i,0]="$xdg_var_name"
+      ListDir[$i,1]="$xdg_path"
+      ListDir[$i,2]="$xdg_dir_name"
+    fi
+  done < <(awk -F'[="]' '/^XDG/{print $1,$3}' "$xdg_conf_file")
+
+  if (("${#ListDir[@]}" == 0)); then
+    err "Aucune variable XDG valide a traiter !"
+    exit 6
+  else
+    nbDev=$(("${#ListDir[@]}"/3))
+    echo "nombre de dossiers à traiter = $nbDev"
+
+    # Construction des éléments :
+    for (( n=0; n<nbDev; n++ )); do
+      xdg_var_name="${ListDir[$n,0]}"
+      xdg_path="${ListDir[$n,1]}"
+      xdg_dir_name="${ListDir[$n,2]}"
+
+      echo " traitement du dossier « $xdg_dir_name » en cours ..."
+      sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$xdg_dir_name"
+    done
+    sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
+  fi
+  log_file "$xdg_conf_file"
+else
+  err "pas de fichier .config/user-dirs.dirs !"
+  exit 5  
+fi
+
+# traitement bookmarks
+book_file="$home/.config/gtk-3.0/bookmarks"
+sav_file "$book_file" "u"
+if test -f "$book_file"; then
+  mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$xdg_dir_name([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
+  for num in "${numLines[@]}"; do
+    sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
+  done
+  # Construction des éléments :
+  (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$xdg_dir_name" | tee -a "$book_file")
+# elif test -f "$xbel_file"; then
+# TODO bookmarks for QT's DE ...
+log_file "$book_file"
+fi
 blue "Script pour montage de partition de données terminé avec succès !"
