@@ -341,6 +341,7 @@ for elem in "$home"/*; do
     if test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! dossier non traité : $dir_name !"; continue;fi
     if test  -L "$elem"; then echo " ! $dir_name est un lien pas de modification"; continue;fi
     if [[ "$dir_name" =~ ^\. ]]; then echo " ! dossier non traité : $dir_name !"; continue;fi
+    # deplacement des dossiers
     echo "traitement du dossier $dir_name"
     sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"
 
@@ -349,8 +350,10 @@ for elem in "$home"/*; do
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
       for num in "${numLines[@]}"; do
         xdg_var_name=(awk -F'[="]' '/^XDG/{print $1}' "$xdg_conf_file")
+        # suppresion ancienne config
         sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
         echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
+        # Construction des éléments :
         echo " traitement de la variable « ${xdg_var_name[num]} » en cours ..."
         (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name[num]}"  "$part_data_user_dir/$dir_name")
         #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "${xdg_var_name[num]} => $part_data_user_dir/$dir_name")
@@ -362,6 +365,7 @@ for elem in "$home"/*; do
     # traitement bookmarks
     if test -f "$book_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
+      # suppresion ancienne config
       for num in "${numLines[@]}"; do
         echo "suppression de la ligne ${num} dans le fichier $book_file"
         sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
