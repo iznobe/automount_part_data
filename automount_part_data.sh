@@ -85,26 +85,8 @@ delMountPoints() {
     done
 }
 
-# chemin="file:///home/olivier/Téléchargements"
-# encoded=$(urlencode "$chemin")
-# echo "Encodé : $encoded"
-
-# encoded="file:///home/olivier/Vid%C3%A9os"
-# decoded=$(urldecode "$encoded")
-# echo "Décodé : $decoded"
 urlencode() {
-  local LANG=C i c e=''
-  for ((i=0;i<${#1};i++)); do
-    c=${1:$i:1}
-    [[ "$c" =~ [a-zA-Z0-9\.\~\_\-] ]] || printf -v c '%%%02X' "'$c"
-    e+="$c"
-  done
-  echo "$e"
-}
-
-urldecode() {
-  : "${*//+/ }"
-  echo -e "${_//%/\\x}"
+  jq -Rr '@uri' <<<"$1"
 }
 
 if ((UID)); then
@@ -385,7 +367,7 @@ for elem in "$home"/*; do
 
     # traitement XDG
     if test -f "$xdg_conf_file"; then
-      mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
+      mapfile -t numLines < <(grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
       if ((${#numLines[@]} > 0)); then
         for num in "${numLines[@]}"; do
           # suppresion ancienne config
@@ -395,9 +377,9 @@ for elem in "$home"/*; do
         xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
           # Construction des éléments :
           if test "$do_change" = "yes"; then
-            (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name")
+            sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name"
           else
-            (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name")
+            sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name"
           fi
       fi
     else
