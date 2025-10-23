@@ -239,13 +239,15 @@ while true; do
           Y|y|O|o|"")
             blue "Votre choix : oui"
             # nettoyage
-            # traitement des partitions montées
-            mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
-            # traitement des partitions NON montées
-            mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'([[:space:]])/{print $2}' /etc/fstab)
-            delMountPoints mountedParts unmountedParts
-            sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
-            sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
+            if test "$do_change" = "yes"; then
+              # traitement des partitions montées
+              mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
+              # traitement des partitions NON montées
+              mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'([[:space:]])/{print $2}' /etc/fstab)
+              delMountPoints mountedParts unmountedParts
+              sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
+              sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
+            fi
             break
           ;;
           *) err "choix invalide";;
