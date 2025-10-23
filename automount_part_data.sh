@@ -21,8 +21,6 @@ blue() {
 sav_file() {
   test -f "$1" || return 0
   if test "$do_change" = "yes"; then
-    sudo -u "$SUDO_USER" echo -e "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-    sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
     echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
     if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
     else cp -v "$1"  "$1".BaK"$now_time"; fi
@@ -32,7 +30,8 @@ sav_file() {
 log_file() {
   test -f "$1" || return 0
   if test "$do_change" = "yes"; then
-    sudo -u "$SUDO_USER" echo -e "$1 apres modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+    test "$2" ="a" && sudo -u "$SUDO_USER" echo -e "$1 APRES modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+    test "$2" ="b" && sudo -u "$SUDO_USER" echo -e "$1 AVANT modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
     sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
   fi
 }
@@ -227,6 +226,7 @@ while true; do
       fi
 
       sav_file "/etc/fstab"
+      log_file "/etc/fstab" "b"
 
       while (("$q" == 1)); do
         echo "le fichier /etc/fstab sera mis à jour si vous poursuivez"
@@ -239,13 +239,15 @@ while true; do
           Y|y|O|o|"")
             blue "Votre choix : oui"
             # nettoyage
-            # traitement des partitions montées
-            mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
-            # traitement des partitions NON montées
-            mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'([[:space:]])/{print $2}' /etc/fstab)
-            delMountPoints mountedParts unmountedParts
-            sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
-            sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
+            if test "$do_change" = "yes"; then
+              # traitement des partitions montées
+              mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
+              # traitement des partitions NON montées
+              mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'([[:space:]])/{print $2}' /etc/fstab)
+              delMountPoints mountedParts unmountedParts
+              sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
+              sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
+            fi
             break
           ;;
           *) err "choix invalide";;
@@ -277,7 +279,7 @@ while true; do
             fi
           fi
         fi
-        log_file "/etc/fstab"
+        log_file "/etc/fstab" "a"
 
         part_data_path="$Mount/$newLabel"
         ! test -d "$part_data_path" && mkdir -v "$part_data_path"
@@ -343,10 +345,13 @@ done
 
 xdg_conf_file="$home/.config/user-dirs.dirs"
 sav_file "$xdg_conf_file" "u"
+log_file"$xdg_conf_file" "b"
 book_file="$home/.config/gtk-3.0/bookmarks"
 sav_file "$book_file" "u"
+log_file "$book_file" "b"
 xbel_file="$home/.local/share/user-places.xbel"
 sav_file "$xbel_file" "u"
+log_file "$xbel_file" "b"
 
 # creer un lien pour chaque dossier deplacé :
 for elem in "$home"/*; do
@@ -417,9 +422,9 @@ done
 
 test -f "$book_file" && sudo -u "$SUDO_USER" sort -t' ' +1 -d "$book_file" -o "$book_file" # trie les bookmarks par ordre alphabetique
 sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
-log_file "$xdg_conf_file"
-log_file "$book_file"
-log_file "$xbel_file"
+log_file "$xdg_conf_file" "a"
+log_file "$book_file" "a"
+log_file "$xbel_file" "a"
 sudo -u "$SUDO_USER" echo -e " etat du home apres modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 
