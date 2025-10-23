@@ -349,7 +349,7 @@ for elem in "$home"/*; do
   if test -d "$elem"; then
     dir_name=${elem##*/}
     if test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! dossier non traité : $dir_name !"; continue;fi
-    if test  -L "$elem"; then echo " ! $dir_name est un lien pas de modification"; continue;fi
+    if test -L "$elem"; then echo " ! $dir_name est un lien pas de modification"; continue;fi
     if [[ "$dir_name" =~ ^\. ]]; then echo " ! dossier non traité : $dir_name !"; continue;fi
     # deplacement des dossiers
     echo
@@ -363,7 +363,7 @@ for elem in "$home"/*; do
       
     # traitement XDG
     if test -f "$xdg_conf_file"; then
-      mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
+      mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
       if ((${#numLines[@]} > 0)); then
         for num in "${numLines[@]}"; do
           # suppresion ancienne config
