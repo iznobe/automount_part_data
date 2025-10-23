@@ -384,6 +384,7 @@ sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
 log_file "$xdg_conf_file"
 log_file "$book_file"
 log_file "$xbel_file"
+sudo -u "$SUDO_USER" echo -e " etat du home apres modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 
 echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
