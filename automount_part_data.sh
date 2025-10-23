@@ -18,8 +18,8 @@ blue() {
 
 sav_file() {
   test -f "$1" || return 0
-  sudo -u "$SUDO_USER" echo -e "$1" >> "$log"
-  sudo -u "$SUDO_USER" cat -n "$1" >> "$log"
+  sudo -u "$SUDO_USER" echo -e "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
   echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
   if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
   else cp -v "$1"  "$1".BaK"$now_time"; fi
@@ -27,8 +27,8 @@ sav_file() {
 
 log_file() {
   test -f "$1" || return 0
-  sudo -u "$SUDO_USER" echo -e "$1 apres modifications :" >> "$log"
-  sudo -u "$SUDO_USER" cat -n "$1" >> "$log"
+  sudo -u "$SUDO_USER" echo -e "$1 apres modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 }
 
 checkLabel() {
@@ -88,9 +88,9 @@ LC_ALL=C
 home="/home/$SUDO_USER"
 now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
 log="$home/automount.log$now_time"
-sudo -u "$SUDO_USER" echo -e "$now_time" >> "$log"
-sudo -u "$SUDO_USER" echo -e "home au depart :" >> "$log"
-sudo -u "$SUDO_USER" ls -l  >> "$log"
+sudo -u "$SUDO_USER" echo -e "$now_time" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+sudo -u "$SUDO_USER" echo -e "home au depart :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 i=-1
@@ -370,11 +370,12 @@ for elem in "$home"/*; do
       # Construction des éléments :
         #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name")
         (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name" | tee -a "$book_file")
-    #elif test -f "$xbel_file"; then
+    elif test -f "$xbel_file"; then
     # TODO bookmarks for QT's DE ...
       #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
+      echo
     else
-        err "pas de fichier bookmark à traiter !"
+      err "pas de fichier bookmark à traiter !"
     fi
   fi
 done
@@ -382,7 +383,8 @@ done
 sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
 log_file "$xdg_conf_file"
 log_file "$book_file"
-sudo -u "$SUDO_USER" ls -l  >> "$log"
+log_file "$xbel_file"
+sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 
 echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
 echo
