@@ -294,9 +294,10 @@ while true; do
       if test -d "$trash_user_dir"; then
         echo
         echo "Création de la corbeille réussie"
-        blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
         echo "-----------------------------------------------------------------"
+        echo
+        blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
       else
         err "inconnue !"
@@ -369,7 +370,7 @@ for elem in "$home"/*; do
       done
       # Construction des éléments :
         #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name")
-        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name" | tee -a "$book_file")
+        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name  $dir_name" | tee -a "$book_file")
     elif test -f "$xbel_file"; then
     # TODO bookmarks for QT's DE ...
       #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
