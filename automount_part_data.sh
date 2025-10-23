@@ -85,6 +85,28 @@ delMountPoints() {
     done
 }
 
+# chemin="file:///home/olivier/Téléchargements"
+# encoded=$(urlencode "$chemin")
+# echo "Encodé : $encoded"
+
+# encoded="file:///home/olivier/Vid%C3%A9os"
+# decoded=$(urldecode "$encoded")
+# echo "Décodé : $decoded"
+urlencode() {
+  local LANG=C i c e=''
+  for ((i=0;i<${#1};i++)); do
+    c=${1:$i:1}
+    [[ "$c" =~ [a-zA-Z0-9\.\~\_\-] ]] || printf -v c '%%%02X' "'$c"
+    e+="$c"
+  done
+  echo "$e"
+}
+
+urldecode() {
+  : "${*//+/ }"
+  echo -e "${_//%/\\x}"
+}
+
 if ((UID)); then
   err "Vous devez être super utilisateur pour lancer ce script (essayez avec « sudo $0 »)."
   exit 1
@@ -354,13 +376,13 @@ for elem in "$home"/*; do
     # deplacement des dossiers
     echo
     echo "traitement du dossier « $dir_name » en cours ..."
-    if test "$do_change" = "yes"; then 
+    if test "$do_change" = "yes"; then
       if ! sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"; then
         err "copie non effectuée !"
         exit 1
       fi
     fi
-      
+
     # traitement XDG
     if test -f "$xdg_conf_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
@@ -384,7 +406,9 @@ for elem in "$home"/*; do
 
     # traitement bookmarks
     if test -f "$book_file"; then
-      mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
+      enco_dir=$(urlencode "$dir_name")
+
+      mapfile -t numLines < <(grep -En "\/$enco_dir([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
       if ((${#numLines[@]} > 0)); then
         for num in "${numLines[@]}"; do
           # suppresion ancienne config
@@ -393,9 +417,9 @@ for elem in "$home"/*; do
         done
         # Construction des éléments :
         if test "$do_change" = "yes"; then
-          (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name" | tee -a "$book_file")
+          (sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$book_file")
         else
-          (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name")
+          (sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name")
         fi
       fi
     elif test -f "$xbel_file"; then
