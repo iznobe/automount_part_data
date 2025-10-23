@@ -346,10 +346,10 @@ for elem in "$home"/*; do
     # traitement XDG
     if test -f "$xdg_conf_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
-      for num in "${numLines[@]}"; do        
+      for num in "${numLines[@]}"; do
         # suppresion ancienne config
           echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
-          sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"                  
+          sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
       done
       xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
       # Construction des éléments :
