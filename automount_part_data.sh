@@ -8,7 +8,7 @@
 # retour.
 # ----------------------------------------------------------------------------
 
-do_change="no"
+LC_ALL=C
 
 err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
@@ -19,25 +19,14 @@ blue() {
 }
 
 sav_file() {
-  test -f "$1" || return 0
-  if test "$do_change" = "yes"; then
-    echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
-    if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
-    else cp -v "$1"  "$1".BaK"$now_time"; fi
-  fi
-}
-
-log_file() {
-  test -f "$1" || return 0
-  if test "$do_change" = "yes"; then
-    test "$2" ="a" && sudo -u "$SUDO_USER" echo -e "$1 APRES modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-    test "$2" ="b" && sudo -u "$SUDO_USER" echo -e "$1 AVANT modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-    sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-  fi
+  test -n "$1" || exit
+  echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
+  if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
+  else cp -v "$1"  "$1".BaK"$now_time"; fi
 }
 
 checkLabel() {
-test -n "$1" || return 1
+test -n "$1" || exit
 local rgx="[^[:alnum:]_.-]"
 if [[ $1 =~ $rgx || ${#1} -gt 16 ]]; then
     unset PartLabel
@@ -61,7 +50,7 @@ chooseLabel() {
         break
       fi
     done
-    blue "Vous avez entré « $newLabel »"
+    blue "Vous avez entré $newLabel"
   done
 }
 
@@ -84,22 +73,13 @@ delMountPoints() {
     done
 }
 
-urlencode() {
-  jq -Rr '@uri' <<<"$1"
-}
-
 if ((UID)); then
   err "Vous devez être super utilisateur pour lancer ce script (essayez avec « sudo $0 »)."
   exit 1
 fi
 
-LC_ALL=C
-home="/home/$SUDO_USER"
 now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
-log="$home/automount.log$now_time"
-sudo -u "$SUDO_USER" echo -e "$now_time" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-sudo -u "$SUDO_USER" echo -e "home au depart :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+home="/home/$SUDO_USER"
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 i=-1
@@ -226,7 +206,6 @@ while true; do
       fi
 
       sav_file "/etc/fstab"
-      log_file "/etc/fstab" "b"
 
       while (("$q" == 1)); do
         echo "le fichier /etc/fstab sera mis à jour si vous poursuivez"
@@ -239,86 +218,77 @@ while true; do
           Y|y|O|o|"")
             blue "Votre choix : oui"
             # nettoyage
-            if test "$do_change" = "yes"; then
-              # traitement des partitions montées
-              mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
-              # traitement des partitions NON montées
-              mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'([[:space:]])/{print $2}' /etc/fstab)
-              delMountPoints mountedParts unmountedParts
-              sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
-              sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
-            fi
+            # traitement des partitions montées
+            mapfile -t mountedParts < <(grep -E "$Part"[[:space:]] /etc/mtab | cut -d ' ' -f 2)
+            # traitement des partitions NON montées
+            mapfile -t unmountedParts < <(awk '/^(LABEL=|\/dev\/disk\/by-label\/)'$PartLabel'([[:space:]])/{print $2}' /etc/fstab)
+            delMountPoints mountedParts unmountedParts
+            sed -i "/$(lsblk -no uuid "$Part")/d" /etc/fstab
+            sleep 1 # Prise en compte du montage par le dash, sans délai, parfois la partition ne s’affiche pas.
             break
           ;;
           *) err "choix invalide";;
         esac
       done
 
-      if test "$do_change" = "yes"; then
-        # construction des éléments :
-        if [[ $PartFstype =~ ^ext[2-4] ]]; then
-          e2label "$Part" "$newLabel"
-          if ((PartPlug == 0)); then # partition interne
-            echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults" | tee -a /etc/fstab
-          else # partition externe EXT2/3/4
-            echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" | tee -a /etc/fstab
+
+      # construction des éléments :
+      if [[ $PartFstype =~ ^ext[2-4] ]]; then
+        e2label "$Part" "$newLabel"
+        if ((PartPlug == 0)); then # partition interne
+          echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults" | tee -a /etc/fstab
+        else # partition externe EXT2/3/4
+          echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" | tee -a /etc/fstab
+        fi
+      elif test "$PartFstype" = "ntfs"; then
+        ntfslabel  "$Part" "$newLabel"
+        if ((PartPlug == 0)); then # partition interne
+          if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+          else
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
           fi
-        elif test "$PartFstype" = "ntfs"; then
-          ntfslabel  "$Part" "$newLabel"
-          if ((PartPlug == 0)); then # partition interne
-            if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            else
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            fi
-          else # partition externe NTFS
-            if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            else
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            fi
+        else # partition externe NTFS
+          if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+          else
+            echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
           fi
         fi
-        log_file "/etc/fstab" "a"
-
-        part_data_path="$Mount/$newLabel"
-        ! test -d "$part_data_path" && mkdir -v "$part_data_path"
-        systemctl daemon-reload
-        if ! mount -a; then
-          err "inattendue , annulation des modifications !"
-          mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
-          systemctl daemon-reload
-          sleep 1
-          umount -v "$part_data_path"
-          rmdir -v "$part_data_path"
-          exit 3
-        fi
-
-        part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
-        ! test -d "$part_data_user_dir" && mkdir -v "$part_data_user_dir"
-        chown -c "$SUDO_USER": "$part_data_user_dir"
-
-        trash_user_dir="$part_data_path"/.Trash-"$SUDO_UID"
-        ! test -d "$trash_user_dir" && mkdir -v "$trash_user_dir"
-        chown -c "$SUDO_USER": "$trash_user_dir"
-        chmod -c 700 "$trash_user_dir"
-      else
-        part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
       fi
+
+      part_data_path="$Mount/$newLabel"
+      ! test -d "$part_data_path" && mkdir -v "$part_data_path"
+      systemctl daemon-reload
+      if ! mount -a; then
+        err "inattendue , annulation des modifications !"
+        mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
+        systemctl daemon-reload
+        sleep 1
+        umount -v "$part_data_path"
+        rmdir -v "$part_data_path"
+        exit 3
+      fi
+
+      part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
+      ! test -d "$part_data_user_dir" && mkdir -v "$part_data_user_dir"
+      chown -c "$SUDO_USER": "$part_data_user_dir"
+
+      trash_user_dir="$part_data_path"/.Trash-"$SUDO_UID"
+      ! test -d "$trash_user_dir" && mkdir -v "$trash_user_dir"
+      chown -c "$SUDO_USER": "$trash_user_dir"
+      chmod -c 700 "$trash_user_dir"
 
       if test -d "$trash_user_dir"; then
         echo
         echo "Création de la corbeille réussie"
+        blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
         echo "-----------------------------------------------------------------"
         echo
-        blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
-        echo
       else
-        if test "$do_change" = "yes"; then
-          err "inconnue !"
-          exit 4
-        fi
+        err "inconnue !"
+        exit 4
       fi
       break
     ;;
@@ -326,111 +296,4 @@ while true; do
   esac
 done
 
-while true; do
-  read -rp "Voulez-vous deplacer TOUTES vos données utilisateur dans la partition « $Part » qui vient d' être montée sur : « $part_data_user_dir » ?
-  cette action peut durer très longtemps, ne pas interrompre pour éviter la perte des données . soyez patient svp !
-  Lancer le déplacement des données maintenant ?  [O/n]"
-  case "$REPLY" in
-    N|n)
-      err "Annulation par l’utilisateur !"
-      exit 0
-    ;;
-    Y|y|O|o|"")
-      blue "Votre choix : oui"
-      break
-    ;;
-    *) err "choix invalide";;
-  esac
-done
-
-xdg_conf_file="$home/.config/user-dirs.dirs"
-sav_file "$xdg_conf_file" "u"
-log_file"$xdg_conf_file" "b"
-book_file="$home/.config/gtk-3.0/bookmarks"
-sav_file "$book_file" "u"
-log_file "$book_file" "b"
-xbel_file="$home/.local/share/user-places.xbel"
-sav_file "$xbel_file" "u"
-log_file "$xbel_file" "b"
-
-# creer un lien pour chaque dossier deplacé :
-for elem in "$home"/*; do
-  if test -d "$elem"; then
-    dir_name=${elem##*/}
-    if test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! dossier non traité : $dir_name !"; continue;fi
-    if test -L "$elem"; then echo " ! $dir_name est un lien pas de modification"; continue;fi
-    if [[ "$dir_name" =~ ^\. ]]; then echo " ! dossier non traité : $dir_name !"; continue;fi
-    # deplacement des dossiers
-    echo
-    echo "traitement du dossier « $dir_name » en cours ..."
-    if test "$do_change" = "yes"; then
-      if ! sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"; then
-        err "copie non effectuée !"
-        exit 1
-      fi
-    fi
-
-    # traitement XDG
-    if test -f "$xdg_conf_file"; then
-      mapfile -t numLines < <(grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
-      if ((${#numLines[@]} > 0)); then
-        for num in "${numLines[@]}"; do
-          # suppresion ancienne config
-          echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
-          test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
-        done
-        xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
-          # Construction des éléments :
-          if test "$do_change" = "yes"; then
-            sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
-          else
-            sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name"
-          fi
-      fi
-    else
-      err "pas de fichier .config/user-dirs.dirs !"
-    fi
-
-    # traitement bookmarks
-    if test -f "$book_file"; then
-      enco_dir=$(urlencode "$dir_name")
-
-      mapfile -t numLines < <(grep -En "\/$enco_dir([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
-      if ((${#numLines[@]} > 0)); then
-        for num in "${numLines[@]}"; do
-          # suppresion ancienne config
-          echo "suppression de la ligne ${num} dans le fichier $book_file"
-          test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
-        done
-        # Construction des éléments :
-        if test "$do_change" = "yes"; then
-          (sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$book_file")
-        else
-          (sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name")
-        fi
-      fi
-
-    elif test -f "$xbel_file"; then
-    # TODO bookmarks for QT's DE ...
-      #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
-      echo
-    else
-      err "pas de fichier bookmark à traiter !"
-    fi
-  fi
-done
-
-test -f "$book_file" && sudo -u "$SUDO_USER" sort -t' ' +1 -d "$book_file" -o "$book_file" # trie les bookmarks par ordre alphabetique
-sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
-log_file "$xdg_conf_file" "a"
-log_file "$book_file" "a"
-log_file "$xbel_file" "a"
-sudo -u "$SUDO_USER" echo -e " etat du home apres modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-
-test "$do_change" = "yes" && echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
-echo "cp .config/gtk-3.0/bookmarks.SAVE .config/gtk-3.0/bookmarks && cp .config/user-dirs.dirs.SAVE .config/user-dirs.dirs"
-echo
-echo "-----------------------------------------------------------------"
-echo
 blue "Script pour montage de partition de données terminé avec succès !"
