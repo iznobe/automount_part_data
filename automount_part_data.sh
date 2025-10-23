@@ -8,15 +8,6 @@
 # retour.
 # ----------------------------------------------------------------------------
 
-
-LC_ALL=C
-home="/home/$SUDO_USER"
-now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
-log="$home/automount.log$now_time"
-sudo -u "$SUDO_USER" echo -e "$now_time" >> "$log"
-sudo -u "$SUDO_USER" echo -e "home au depart :" >> "$log"
-sudo -u "$SUDO_USER" ls -l  >> "$log"
-
 err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
 }
@@ -26,7 +17,7 @@ blue() {
 }
 
 sav_file() {
-  test -n "$1" || exit
+  test -f "$1" || return 0
   sudo -u "$SUDO_USER" echo -e "$1" >> "$log"
   sudo -u "$SUDO_USER" cat -n "$1" >> "$log"
   echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
@@ -35,13 +26,13 @@ sav_file() {
 }
 
 log_file() {
-  test -n "$1" || exit
+  test -f "$1" || return 0
   sudo -u "$SUDO_USER" echo -e "$1 apres modifications :" >> "$log"
   sudo -u "$SUDO_USER" cat -n "$1" >> "$log"
 }
 
 checkLabel() {
-test -n "$1" || exit
+test -n "$1" || return 1
 local rgx="[^[:alnum:]_.-]"
 if [[ $1 =~ $rgx || ${#1} -gt 16 ]]; then
     unset PartLabel
@@ -65,7 +56,7 @@ chooseLabel() {
         break
       fi
     done
-    blue "Vous avez entré $newLabel"
+    blue "Vous avez entré « $newLabel »"
   done
 }
 
@@ -93,8 +84,13 @@ if ((UID)); then
   exit 1
 fi
 
-
-
+LC_ALL=C
+home="/home/$SUDO_USER"
+now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
+log="$home/automount.log$now_time"
+sudo -u "$SUDO_USER" echo -e "$now_time" >> "$log"
+sudo -u "$SUDO_USER" echo -e "home au depart :" >> "$log"
+sudo -u "$SUDO_USER" ls -l  >> "$log"
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 i=-1
@@ -352,14 +348,13 @@ for elem in "$home"/*; do
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
       for num in "${numLines[@]}"; do        
         # suppresion ancienne config
-          sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
-          echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"        
+          echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
+          sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"                  
       done
       xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
       # Construction des éléments :
-        echo " traitement de la variable « $xdg_var_name » en cours ..."
-        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name")
         #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name")
+        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name")
     else
       err "pas de fichier .config/user-dirs.dirs !"
     fi
@@ -367,16 +362,14 @@ for elem in "$home"/*; do
     # traitement bookmarks
     if test -f "$book_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
-      # suppresion ancienne config
       for num in "${numLines[@]}"; do
+        # suppresion ancienne config
           echo "suppression de la ligne ${num} dans le fichier $book_file"
           sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
       done
       # Construction des éléments :
-        echo " traitement du marque-page « $dir_name » en cours ..."
-        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name" | tee -a "$book_file")
         #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name")
-
+        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name" | tee -a "$book_file")
     #elif test -f "$xbel_file"; then
     # TODO bookmarks for QT's DE ...
       #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
