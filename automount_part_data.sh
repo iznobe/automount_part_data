@@ -8,6 +8,8 @@
 # retour.
 # ----------------------------------------------------------------------------
 
+do_change="no"
+
 err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
 }
@@ -18,17 +20,21 @@ blue() {
 
 sav_file() {
   test -f "$1" || return 0
-  sudo -u "$SUDO_USER" echo -e "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-  sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-  echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
-  if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
-  else cp -v "$1"  "$1".BaK"$now_time"; fi
+  if test "$do_change" = "yes"; then
+    sudo -u "$SUDO_USER" echo -e "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+    sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+    echo "sauvegarde du fichier « $1 » en « $1.BaK$now_time » avant modifications"
+    if test "$2" = "u"; then sudo -u "$SUDO_USER" cp -v "$1" "$1".BaK"$now_time"
+    else cp -v "$1"  "$1".BaK"$now_time"; fi
+  fi
 }
 
 log_file() {
   test -f "$1" || return 0
-  sudo -u "$SUDO_USER" echo -e "$1 apres modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-  sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  if test "$do_change" = "yes"; then
+    sudo -u "$SUDO_USER" echo -e "$1 apres modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+    sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  fi
 }
 
 checkLabel() {
@@ -242,54 +248,57 @@ while true; do
         esac
       done
 
-
-      # construction des éléments :
-      if [[ $PartFstype =~ ^ext[2-4] ]]; then
-        e2label "$Part" "$newLabel"
-        if ((PartPlug == 0)); then # partition interne
-          echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults" | tee -a /etc/fstab
-        else # partition externe EXT2/3/4
-          echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" | tee -a /etc/fstab
-        fi
-      elif test "$PartFstype" = "ntfs"; then
-        ntfslabel  "$Part" "$newLabel"
-        if ((PartPlug == 0)); then # partition interne
-          if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
-            echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-          else
-            echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+      if test "$do_change" = "yes"; then
+        # construction des éléments :
+        if [[ $PartFstype =~ ^ext[2-4] ]]; then
+          e2label "$Part" "$newLabel"
+          if ((PartPlug == 0)); then # partition interne
+            echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults" | tee -a /etc/fstab
+          else # partition externe EXT2/3/4
+            echo "LABEL=$newLabel $Mount/$newLabel $PartFstype defaults,nofail,x-systemd.device-timeout=1" | tee -a /etc/fstab
           fi
-        else # partition externe NTFS
-          if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
-            echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-          else
-            echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+        elif test "$PartFstype" = "ntfs"; then
+          ntfslabel  "$Part" "$newLabel"
+          if ((PartPlug == 0)); then # partition interne
+            if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
+              echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+            else
+              echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+            fi
+          else # partition externe NTFS
+            if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
+              echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+            else
+              echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
+            fi
           fi
         fi
-      fi
-      log_file "/etc/fstab"
+        log_file "/etc/fstab"
 
-      part_data_path="$Mount/$newLabel"
-      ! test -d "$part_data_path" && mkdir -v "$part_data_path"
-      systemctl daemon-reload
-      if ! mount -a; then
-        err "inattendue , annulation des modifications !"
-        mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
+        part_data_path="$Mount/$newLabel"
+        ! test -d "$part_data_path" && mkdir -v "$part_data_path"
         systemctl daemon-reload
-        sleep 1
-        umount -v "$part_data_path"
-        rmdir -v "$part_data_path"
-        exit 3
+        if ! mount -a; then
+          err "inattendue , annulation des modifications !"
+          mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
+          systemctl daemon-reload
+          sleep 1
+          umount -v "$part_data_path"
+          rmdir -v "$part_data_path"
+          exit 3
+        fi
+
+        part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
+        ! test -d "$part_data_user_dir" && mkdir -v "$part_data_user_dir"
+        chown -c "$SUDO_USER": "$part_data_user_dir"
+
+        trash_user_dir="$part_data_path"/.Trash-"$SUDO_UID"
+        ! test -d "$trash_user_dir" && mkdir -v "$trash_user_dir"
+        chown -c "$SUDO_USER": "$trash_user_dir"
+        chmod -c 700 "$trash_user_dir"
+      else
+        part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
       fi
-
-      part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
-      ! test -d "$part_data_user_dir" && mkdir -v "$part_data_user_dir"
-      chown -c "$SUDO_USER": "$part_data_user_dir"
-
-      trash_user_dir="$part_data_path"/.Trash-"$SUDO_UID"
-      ! test -d "$trash_user_dir" && mkdir -v "$trash_user_dir"
-      chown -c "$SUDO_USER": "$trash_user_dir"
-      chmod -c 700 "$trash_user_dir"
 
       if test -d "$trash_user_dir"; then
         echo
@@ -300,8 +309,10 @@ while true; do
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
       else
-        err "inconnue !"
-        exit 4
+        if test "$do_change" = "yes"; then
+          err "inconnue !"
+          exit 4
+        fi
       fi
       break
     ;;
@@ -341,22 +352,31 @@ for elem in "$home"/*; do
     if test  -L "$elem"; then echo " ! $dir_name est un lien pas de modification"; continue;fi
     if [[ "$dir_name" =~ ^\. ]]; then echo " ! dossier non traité : $dir_name !"; continue;fi
     # deplacement des dossiers
-      echo "traitement du dossier « $dir_name » en cours ..."
-      sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"
-
+    echo
+    echo "traitement du dossier « $dir_name » en cours ..."
+    if test "$do_change" = "yes"; then 
+      if ! sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"; then
+        err "copie non effectuée !"
+        exit 1
+      fi
+    fi
+      
     # traitement XDG
     if test -f "$xdg_conf_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
       if ((${#numLines[@]} > 0)); then
         for num in "${numLines[@]}"; do
           # suppresion ancienne config
-            echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
-            sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
+          echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
+          test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
         done
         xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
           # Construction des éléments :
-            #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name")
+          if test "$do_change" = "yes"; then
             (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name")
+          else
+            (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name")
+          fi
       fi
     else
       err "pas de fichier .config/user-dirs.dirs !"
@@ -368,12 +388,15 @@ for elem in "$home"/*; do
       if ((${#numLines[@]} > 0)); then
         for num in "${numLines[@]}"; do
           # suppresion ancienne config
-            echo "suppression de la ligne ${num} dans le fichier $book_file"
-            sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
+          echo "suppression de la ligne ${num} dans le fichier $book_file"
+          test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
         done
         # Construction des éléments :
-          #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name")
+        if test "$do_change" = "yes"; then
           (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name" | tee -a "$book_file")
+        else
+          (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name")
+        fi
       fi
     elif test -f "$xbel_file"; then
     # TODO bookmarks for QT's DE ...
@@ -394,6 +417,7 @@ sudo -u "$SUDO_USER" echo -e " etat du home apres modifs :" | sudo -u "$SUDO_USE
 sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 
 echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
+echo "cp .config/gtk-3.0/bookmarks.SAVE .config/gtk-3.0/bookmarks && cp .config/user-dirs.dirs.SAVE .config/user-dirs.dirs"
 echo
 echo "-----------------------------------------------------------------"
 echo
