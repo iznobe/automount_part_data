@@ -347,15 +347,17 @@ for elem in "$home"/*; do
     # traitement XDG
     if test -f "$xdg_conf_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
-      for num in "${numLines[@]}"; do
-        # suppresion ancienne config
-          echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
-          sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
-      done
-      xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
-      # Construction des éléments :
-        #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name")
-        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name")
+      if ((${#numLines[@]} > 0)); then
+        for num in "${numLines[@]}"; do
+          # suppresion ancienne config
+            echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
+            sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
+        done
+        xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
+          # Construction des éléments :
+            #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name")
+            (LC_ALL=UTF-8 sudo -u "$SUDO_USER" xdg-user-dirs-update --set "${xdg_var_name}"  "$part_data_user_dir/$dir_name")
+      fi
     else
       err "pas de fichier .config/user-dirs.dirs !"
     fi
@@ -363,14 +365,16 @@ for elem in "$home"/*; do
     # traitement bookmarks
     if test -f "$book_file"; then
       mapfile -t numLines < <(LC_ALL=UTF-8 grep -En "\/$dir_name([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
-      for num in "${numLines[@]}"; do
-        # suppresion ancienne config
-          echo "suppression de la ligne ${num} dans le fichier $book_file"
-          sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
-      done
-      # Construction des éléments :
-        #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name")
-        (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name" | tee -a "$book_file")
+      if ((${#numLines[@]} > 0)); then
+        for num in "${numLines[@]}"; do
+          # suppresion ancienne config
+            echo "suppression de la ligne ${num} dans le fichier $book_file"
+            sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
+        done
+        # Construction des éléments :
+          #(LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name")
+          (LC_ALL=UTF-8 sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$dir_name $dir_name" | tee -a "$book_file")
+      fi
     elif test -f "$xbel_file"; then
     # TODO bookmarks for QT's DE ...
       #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
