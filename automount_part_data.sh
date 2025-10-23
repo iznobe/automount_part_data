@@ -416,7 +416,7 @@ log_file "$xbel_file"
 sudo -u "$SUDO_USER" echo -e " etat du home apres modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 
-echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
+test "$do_change" = "yes" && echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
 echo "cp .config/gtk-3.0/bookmarks.SAVE .config/gtk-3.0/bookmarks && cp .config/user-dirs.dirs.SAVE .config/user-dirs.dirs"
 echo
 echo "-----------------------------------------------------------------"
