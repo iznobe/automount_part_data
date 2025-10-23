@@ -381,6 +381,7 @@ for elem in "$home"/*; do
   fi
 done
 
+test -f "$book_file" && sudo -u "$SUDO_USER" sort -t' ' +1 -d "$book_file" -o "$book_file" # trie les bookmarks par ordre alphabetique
 sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
 log_file "$xdg_conf_file"
 log_file "$book_file"
