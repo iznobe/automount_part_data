@@ -14,6 +14,10 @@ err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
 }
 
+info() {
+  >&2 echo -e "\\033[0;33m Info : $* \\033[0;0m"
+}
+
 blue() {
   >&2 echo -e "\\033[1;34m  $* \\033[0;0m"
 }
@@ -85,7 +89,13 @@ delMountPoints() {
 }
 
 urlencode() {
-  jq -Rr '@uri' <<<"$1"
+  local LANG=C i c e=''
+  for ((i=0;i<${#1};i++)); do
+    c=${1:$i:1}
+    [[ "$c" =~ [a-zA-Z0-9\.\~\_\-] ]] || printf -v c '%%%02X' "'$c"
+    e+="$c"
+  done
+  echo "$e"
 }
 
 if ((UID)); then
@@ -217,13 +227,13 @@ while true; do
     Y|y|O|o|"")
       blue "Votre choix : oui"
       if grep -q "$(lsblk -no uuid "$Part")" /etc/fstab; then
-        echo "L’UUID de la partition est déjà présent dans le fstab !"
+        info "L’UUID de la partition est déjà présent dans le fstab !"
         q=1
       elif grep -Eq "(LABEL=|/dev/disk/by-label/)$newLabel([[:space:]])" /etc/fstab; then
-        echo "L’étiquette « $newLabel » est déjà utilisée dans le fstab !"
+        info "L’étiquette « $newLabel » est déjà utilisée dans le fstab !"
         q=1
       elif grep -q "^$Part" /etc/mtab; then
-        echo "La partition « $Part » est déjà montée !"
+        info "La partition « $Part » est déjà montée !"
         q=1
       fi
 
@@ -306,7 +316,7 @@ while true; do
         chmod -c 700 "$trash_user_dir"
       else
         part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
-        echo "-----------------------------------------------------------------"
+        info "-----------------------------------------------------------------"
         echo
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
@@ -314,9 +324,9 @@ while true; do
 
       if test -d "$trash_user_dir"; then
         echo
-        echo "Création de la corbeille réussie"
+       info "Création de la corbeille réussie"
         echo
-        echo "-----------------------------------------------------------------"
+        info "-----------------------------------------------------------------"
         echo
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
@@ -398,8 +408,9 @@ for elem in "$home"/*; do
           echo "« $xdg_var_name » => $part_data_user_dir/$dir_name"
         fi
       else
-        err " la variable xdg_var_name est vide !"
+        info " la variable xdg_var_name est vide !"
       fi
+      
     else
       err "pas de fichier .config/user-dirs.dirs !"
     fi
