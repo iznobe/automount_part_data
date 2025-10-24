@@ -390,7 +390,7 @@ for elem in "$home"/*; do
           if test "$do_change" = "yes"; then
             sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
           else
-            sudo -u "$SUDO_USER" echo "$xdg_var_name => $part_data_user_dir/$dir_name"
+            echo "$xdg_var_name => $part_data_user_dir/$dir_name"
           fi
       fi
     else
@@ -410,9 +410,9 @@ for elem in "$home"/*; do
         done
         # Construction des éléments :
         if test "$do_change" = "yes"; then
-          (sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$book_file")
+          sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$book_file"
         else
-          (sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name")
+          echo "file://$part_data_user_dir/$enco_dir $dir_name"
         fi
       fi
 
