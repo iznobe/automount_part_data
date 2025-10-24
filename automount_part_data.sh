@@ -8,7 +8,7 @@
 # retour.
 # ----------------------------------------------------------------------------
 
-do_change="yes" # "yes" or "no"
+do_change="no" # "yes" or "no"
 
 err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
@@ -378,20 +378,27 @@ for elem in "$home"/*; do
 
     # traitement XDG
     if test -f "$xdg_conf_file"; then
+      # recuperation des éléments
+      xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
       mapfile -t numLines < <(grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
+
+      # suppresion ancienne config
       if ((${#numLines[@]} > 0)); then
         for num in "${numLines[@]}"; do
-          # suppresion ancienne config
-          echo "suppression de la ligne ${num} dans le fichier $xdg_conf_file"
+          echo "suppression de la ligne « ${num} » dans le fichier « $xdg_conf_file »"
           test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
         done
-        xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
-          # Construction des éléments :
-          if test "$do_change" = "yes"; then
-            sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
-          else
-            echo "$xdg_var_name => $part_data_user_dir/$dir_name"
-          fi
+      fi
+
+      # Construction des éléments :
+      if test -n "$xdg_var_name"; then
+        if test "$do_change" = "yes"; then
+          sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
+        else
+          echo "« $xdg_var_name » => $part_data_user_dir/$dir_name"
+        fi
+      else
+        err " la variable xdg_var_name est vide !"
       fi
     else
       err "pas de fichier .config/user-dirs.dirs !"
@@ -405,14 +412,14 @@ for elem in "$home"/*; do
       if ((${#numLines[@]} > 0)); then
         for num in "${numLines[@]}"; do
           # suppresion ancienne config
-          echo "suppression de la ligne ${num} dans le fichier $book_file"
+          echo "suppression de la ligne « ${num} » dans le fichier « $book_file »"
           test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
         done
         # Construction des éléments :
         if test "$do_change" = "yes"; then
           sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$book_file"
         else
-          echo "file://$part_data_user_dir/$enco_dir $dir_name"
+          echo "« file://$part_data_user_dir/$enco_dir $dir_name »"
         fi
       fi
 
