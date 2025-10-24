@@ -8,8 +8,8 @@
 # retour.
 # ----------------------------------------------------------------------------
 
-do_change="no"
-# "yes"
+do_change="yes" # "yes" or "no"
+
 err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
 }
@@ -30,8 +30,8 @@ sav_file() {
 log_file() {
   test -f "$1" || return 0
   if test "$do_change" = "yes"; then
-    test "$2" ="a" && sudo -u "$SUDO_USER" echo -e "$1 APRES modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-    test "$2" ="b" && sudo -u "$SUDO_USER" echo -e "$1 AVANT modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+    test "$2" = "a" && sudo -u "$SUDO_USER" echo -e "$1 APRES modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+    test "$2" = "b" && sudo -u "$SUDO_USER" echo -e "$1 AVANT modifications :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
     sudo -u "$SUDO_USER" cat -n "$1" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
   fi
 }
