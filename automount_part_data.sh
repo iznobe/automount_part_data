@@ -9,7 +9,7 @@
 # ----------------------------------------------------------------------------
 
 do_change="no"
-
+# "yes"
 err() {
     >&2 echo -e "\\033[1;31m Erreur : $* \\033[0;0m"
 }
@@ -304,6 +304,10 @@ while true; do
         chmod -c 700 "$trash_user_dir"
       else
         part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
+        echo "-----------------------------------------------------------------"
+        echo
+        blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
+        echo
       fi
 
       if test -d "$trash_user_dir"; then
