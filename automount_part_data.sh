@@ -349,7 +349,7 @@ done
 
 xdg_conf_file="$home/.config/user-dirs.dirs"
 sav_file "$xdg_conf_file" "u"
-log_file"$xdg_conf_file" "b"
+log_file "$xdg_conf_file" "b"
 book_file="$home/.config/gtk-3.0/bookmarks"
 sav_file "$book_file" "u"
 log_file "$book_file" "b"
