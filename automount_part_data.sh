@@ -96,10 +96,12 @@ fi
 LC_ALL=C
 home="/home/$SUDO_USER"
 now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
+if test "$do_change" = "yes"; then
 log="$home/automount.log$now_time"
-sudo -u "$SUDO_USER" echo -e "$now_time" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-sudo -u "$SUDO_USER" echo -e "home au depart :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" echo -e "$now_time" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" echo -e "home au depart :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+fi
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 i=-1
@@ -419,7 +421,7 @@ for elem in "$home"/*; do
       #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
       echo
     else
-      err "pas de fichier bookmark à traiter !"
+      err "pas de fichier bookmarks à traiter !"
     fi
   fi
 done
@@ -429,9 +431,11 @@ sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
 log_file "$xdg_conf_file" "a"
 log_file "$book_file" "a"
 log_file "$xbel_file" "a"
-sudo -u "$SUDO_USER" echo -e " etat du home apres modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-
+if test "$do_change" = "yes"; then
+  sudo -u "$SUDO_USER" echo -e " etat du home APRES modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+fi
+echo
 test "$do_change" = "yes" && echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
 echo "cp .config/gtk-3.0/bookmarks.SAVE .config/gtk-3.0/bookmarks && cp .config/user-dirs.dirs.SAVE .config/user-dirs.dirs"
 echo
