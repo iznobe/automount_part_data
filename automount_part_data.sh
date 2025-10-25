@@ -447,7 +447,6 @@ for dir_name in "${dir_tab[@]}"; do
     # qt_book_file="$home/.local/share/user-places.xbel"
 
     book_found="$(grep "$home/$enco_dir" "$qt_book_file")"
-echo "book_found=$book_found"
     if test -z "$book_found"; then
       info "pas de modification de marque-pages QT a effectuer pour le dossier « $dir_name »"
     else
