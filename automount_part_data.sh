@@ -163,7 +163,7 @@ nbDev=$(("${#ListPart[@]}"/5))
 
           echo             # 0        1           2             3             4
           echo "  n°  ⇒    path     fstype  externe/interne     mountpoint     label"
-echo "-----------------------------------------------------------------------------"
+echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
 for (( n=0; n<nbDev; n++ )); do
   if ((n+1 < 10)); then
     echo "  $((n+1))   ⇒ ${ListPart[$n,0]}    ${ListPart[$n,1]}          ${ListPart[$n,2]}       ${ListPart[$n,3]}      ${ListPart[$n,4]}"
@@ -317,7 +317,7 @@ while true; do
         chmod -c 700 "$trash_user_dir"
       else
         part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
-        info "-----------------------------------------------------------------"
+        echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
         echo
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
@@ -327,7 +327,7 @@ while true; do
         echo
        info "Création de la corbeille réussie"
         echo
-        info "-----------------------------------------------------------------"
+        echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
         echo
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
@@ -378,7 +378,7 @@ for elem in "$home"/*; do
     dir_name=${elem##*/}
     dir_tab+=("$dir_name")
     if [[ "$dir_name" =~ ^\. ]] || test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! dossier systeme à ne pas déplacer : $dir_name !"; continue;fi
-    if test -L "$elem"; then echo "  ! $dir_name est un lien pas de déplacement ."; continue;fi
+    if test -L "$elem"; then echo "  ! $dir_name est un lien , pas de déplacement ."; continue;fi
     # deplacement des dossiers
     echo "déplacement du dossier « $dir_name » en cours ..."
     if test "$do_change" = "yes"; then
@@ -394,13 +394,17 @@ printf "\n"
 info "Modifications des variables XDG et des marque-pages :"
 printf "\n"
 
+if ! dpkg-query -f '${binary:Package}\n' -W "xmlstarlet" &>/dev/null; then
+  apt-get install -qq "xmlstarlet"
+fi
+
 for dir_name in "${dir_tab[@]}"; do
   enco_dir=$(urlencode "$dir_name")
   # traitement XDG
   if test -f "$xdg_conf_file"; then
     # recuperation des éléments
     xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
-    mapfile -t numLines < <(grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
+    mapfile -t numLines < <(grep -En "/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
     # suppresion ancienne config
     if ((${#numLines[@]} > 0)); then
       for num in "${numLines[@]}"; do
@@ -421,7 +425,7 @@ for dir_name in "${dir_tab[@]}"; do
 
   # traitement bookmarks
   if test -f "$gnome_book_file"; then # GNOME
-    mapfile -t numLines < <(grep -En "\/$enco_dir([[:space:]]|$)" "$gnome_book_file" | cut -d ":" -f 1 | sort -rn)
+    mapfile -t numLines < <(grep -En "/$enco_dir([[:space:]]|$)" "$gnome_book_file" | cut -d ":" -f 1 | sort -rn)
     if ((${#numLines[@]} > 0)); then
       for num in "${numLines[@]}"; do
         # suppresion ancienne config
@@ -442,21 +446,13 @@ for dir_name in "${dir_tab[@]}"; do
     # install xmlstarlet !!!
     # qt_book_file="$home/.local/share/user-places.xbel"
 
-  # TODO bookmarks for QT's DE ...
-    #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
-    # change path of bookmark with selected ID : xmlstarlet ed -L -u '//bookmark[contains(., "1760776747/10")]/@href' -v '/chemin/arbitraire' user-places.xbel
-    # change icon name "folder-documents" to "folder-XYZ" : xmlstarlet ed -L -N xmlns:bookmark="http://www.freedesktop.org/standards/desktop-bookmarks" -u '//bookmark:icon[@name="folder-documents"]/@name' -v 'folder-XYZ' user-places.xbel
-    #######
-    # change path of bookmark with selected path using Namespaces :
-    # xmlstarlet ed -L -N xmlns:bookmark="http://www.freedesktop.org/standards/desktop-bookmarks" -u '//bookmark[@href="file:///home/olivier/Documents"]/@href' -v 'test' user-places.xbel
-
     book_found=$(xmlstarlet ed -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file" | grep "$part_data_user_dir/$dir_name")
 
     if test -z "$book_found"; then
       info "pas de modification de marque-pages QT a effectuer pour le dossier « $dir_name »"
     else
       echo "Modification du marque-pages : « file://$part_data_user_dir/$enco_dir $dir_name » pour QT bookmarks"
-      test "$do_change" = "yes" && xmlstarlet ed -L -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file"
+      test "$do_change" = "yes" && sudo -u "$SUDO_USER" xmlstarlet ed -L -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file"
     fi
   else # FIN bookmarks QT
     info "pas de fichier « $qt_book_file » a traiter !"
@@ -474,8 +470,13 @@ if test "$do_change" = "yes"; then
 fi
 echo
 test "$do_change" = "yes" && echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
-echo "cp .config/gtk-3.0/bookmarks.SAVE .config/gtk-3.0/bookmarks && cp .config/user-dirs.dirs.SAVE .config/user-dirs.dirs"
 echo
-echo "-----------------------------------------------------------------"
+echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
 echo
 blue "Script pour montage de partition de données terminé avec succès !"
+echo
+
+echo -e "\\033[1;31m ! IMPORTANT ! : Toutes vos données utilisateurs seront dorénavant stockées dans votre partition $label : « $part » .
+ces données sont accessible par le chemin suivant : « $part_data_path ».
+Pour SAUVEGARDER vos données personelles , vous devez dorénavant utiliser le nouveau chemin de stockage de vos données personnelles : « $part_data_user_dir ».
+Voir ce lien pour plus d' infos sur la sauvegarde : https://doc.ubuntu-fr.org/sauvegarde \\033[0;0m"
