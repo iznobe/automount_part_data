@@ -394,10 +394,6 @@ printf "\n"
 info "Modifications des variables XDG et des marque-pages :"
 printf "\n"
 
-if ! dpkg-query -f '${binary:Package}\n' -W "xmlstarlet" &>/dev/null; then
-  apt-get install -qq "xmlstarlet"
-fi
-
 for dir_name in "${dir_tab[@]}"; do
   enco_dir=$(urlencode "$dir_name")
   # traitement XDG
@@ -443,7 +439,10 @@ for dir_name in "${dir_tab[@]}"; do
   fi
 
   if test -f "$qt_book_file"; then # QT
-    # install xmlstarlet !!!
+    # install xmlstarlet :
+    if ! dpkg-query -f '${binary:Package}\n' -W "xmlstarlet" &>/dev/null; then
+      apt-get install -qq "xmlstarlet"
+    fi    
     # qt_book_file="$home/.local/share/user-places.xbel"
 
     book_found="$(grep "$home/$enco_dir" "$qt_book_file")"
@@ -475,7 +474,7 @@ echo
 blue "Script pour montage de partition de données terminé avec succès !"
 echo
 
-echo -e "\\033[1;31m ! IMPORTANT ! : Toutes vos données utilisateurs seront dorénavant stockées dans votre partition $label : « $part » .
+echo -e "\\033[1;31m ! IMPORTANT ! : Toutes vos données utilisateurs seront dorénavant stockées dans votre partition $newLabel : « $Part » .
 ces données sont accessible par le chemin suivant : « $part_data_path ».
 Pour SAUVEGARDER vos données personelles , vous devez dorénavant utiliser le nouveau chemin de stockage de vos données personnelles : « $part_data_user_dir ».
 Voir ce lien pour plus d' infos sur la sauvegarde : https://doc.ubuntu-fr.org/sauvegarde \\033[0;0m"
