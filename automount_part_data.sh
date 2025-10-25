@@ -112,6 +112,7 @@ log="$home/automount.log$now_time"
   sudo -u "$SUDO_USER" echo -e "home au depart :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
   sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 fi
+dir_tab=()
 declare -A ListPart
 declare -A Rgx=( [fstype]="^(ext[2-4]|ntfs)" [mountP]="^(/|/boot|/home|/tmp|/usr|/var|/srv|/opt|/usr/local)$" )
 i=-1
@@ -359,96 +360,114 @@ while true; do
   esac
 done
 
+
 xdg_conf_file="$home/.config/user-dirs.dirs"
 sav_file "$xdg_conf_file" "u"
 log_file "$xdg_conf_file" "b"
-book_file="$home/.config/gtk-3.0/bookmarks"
-sav_file "$book_file" "u"
-log_file "$book_file" "b"
-xbel_file="$home/.local/share/user-places.xbel"
-sav_file "$xbel_file" "u"
-log_file "$xbel_file" "b"
+gnome_book_file="$home/.config/gtk-3.0/bookmarks"
+sav_file "$gnome_book_file" "u"
+log_file "$gnome_book_file" "b"
+qt_book_file="$home/.local/share/user-places.xbel"
+sav_file "$qt_book_file" "u"
+log_file "$qt_book_file" "b"
 
 # creer un lien pour chaque dossier deplacé :
+info "Déplacement des dossiers : \n"
 for elem in "$home"/*; do
-  if test -d "$elem"; then
+    if test -d "$elem"; then
     dir_name=${elem##*/}
-    if test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! dossier non traité : $dir_name !"; continue;fi
-    if test -L "$elem"; then echo " ! $dir_name est un lien pas de modification"; continue;fi
-    if [[ "$dir_name" =~ ^\. ]]; then echo " ! dossier non traité : $dir_name !"; continue;fi
+    dir_tab+=("$dir_name")
+    if [[ "$dir_name" =~ ^\. ]] || test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! dossier systeme à ne pas déplacer : $dir_name !"; continue;fi
+    if test -L "$elem"; then echo "  ! $dir_name est un lien pas de déplacement ."; continue;fi
     # deplacement des dossiers
-    echo
-    echo "traitement du dossier « $dir_name » en cours ..."
+    echo "déplacement du dossier « $dir_name » en cours ..."
     if test "$do_change" = "yes"; then
-      if ! sudo -u "$SUDO_USER" mv "$elem"   "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name"  "$home"; then
+      if ! sudo -u "$SUDO_USER" mv "$elem" "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name" "$home"; then
         err "copie non effectuée !"
         exit 1
       fi
     fi
-
-    # traitement XDG
-    if test -f "$xdg_conf_file"; then
-      # recuperation des éléments
-      xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
-      mapfile -t numLines < <(grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
-
-      # suppresion ancienne config
-      if ((${#numLines[@]} > 0)); then
-        for num in "${numLines[@]}"; do
-          echo "suppression de la ligne « ${num} » dans le fichier « $xdg_conf_file »"
-          test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
-        done
-      fi
-
-      # Construction des éléments :
-      if test -n "$xdg_var_name"; then
-        if test "$do_change" = "yes"; then
-          sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
-        else
-          echo "« $xdg_var_name » => $part_data_user_dir/$dir_name"
-        fi
-      else
-        info " la variable xdg_var_name est vide !"
-      fi
-      
-    else
-      err "pas de fichier .config/user-dirs.dirs !"
-    fi
-
-    # traitement bookmarks
-    if test -f "$book_file"; then
-      enco_dir=$(urlencode "$dir_name")
-
-      mapfile -t numLines < <(grep -En "\/$enco_dir([[:space:]]|$)" "$book_file" | cut -d ":" -f 1 | sort -rn)
-      if ((${#numLines[@]} > 0)); then
-        for num in "${numLines[@]}"; do
-          # suppresion ancienne config
-          echo "suppression de la ligne « ${num} » dans le fichier « $book_file »"
-          test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$book_file"
-        done
-        # Construction des éléments :
-        if test "$do_change" = "yes"; then
-          sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$book_file"
-        else
-          echo "« file://$part_data_user_dir/$enco_dir $dir_name »"
-        fi
-      fi
-
-    elif test -f "$xbel_file"; then
-    # TODO bookmarks for QT's DE ...
-      #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
-      echo
-    else
-      err "pas de fichier bookmarks à traiter !"
-    fi
   fi
 done
 
-test -f "$book_file" && sudo -u "$SUDO_USER" sort -t' ' +1 -d "$book_file" -o "$book_file" # trie les bookmarks par ordre alphabetique
+printf "\n"
+info "Modifications des variables XDG et des marque-pages :"
+printf "\n"
+
+for dir_name in "${dir_tab[@]}"; do
+  enco_dir=$(urlencode "$dir_name")
+  # traitement XDG
+  if test -f "$xdg_conf_file"; then
+    # recuperation des éléments
+    xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
+    mapfile -t numLines < <(grep -En "\/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
+    # suppresion ancienne config
+    if ((${#numLines[@]} > 0)); then
+      for num in "${numLines[@]}"; do
+        echo "suppression de la ligne « ${num} » dans le fichier « $xdg_conf_file »"
+        test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
+      done
+    fi
+    # Construction des éléments :
+    if test -n "$xdg_var_name"; then
+      echo "Modification de la variable : « $xdg_var_name » => $part_data_user_dir/$dir_name"
+      test "$do_change" = "yes" && sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
+    else
+      info "Pas de modification de la variable XDG pour le dossier « $dir_name »"
+    fi
+  else # FIN XDG
+    err "pas de fichier .config/user-dirs.dirs !"
+  fi
+
+  # traitement bookmarks
+  if test -f "$gnome_book_file"; then # GNOME
+    mapfile -t numLines < <(grep -En "\/$enco_dir([[:space:]]|$)" "$gnome_book_file" | cut -d ":" -f 1 | sort -rn)
+    if ((${#numLines[@]} > 0)); then
+      for num in "${numLines[@]}"; do
+        # suppresion ancienne config
+        echo "suppression de la ligne « ${num} » dans le fichier « $gnome_book_file »"
+        test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$gnome_book_file"
+      done
+      # Construction des éléments :
+      echo "Modification du marque-pages : « file://$part_data_user_dir/$enco_dir $dir_name » pour GNOME bookmarks"
+      test "$do_change" = "yes" && sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$gnome_book_file"
+    else
+      info "pas de modification de marque-pages GNOME a effectuer pour le dossier « $dir_name »"
+    fi
+  else # FIN bookmarks GNOME
+    info "pas de fichier « $gnome_book_file » a traiter !"
+  fi
+
+  if test -f "$qt_book_file"; then # QT
+    # install xmlstarlet !!!
+    # qt_book_file="$home/.local/share/user-places.xbel"
+
+  # TODO bookmarks for QT's DE ...
+    #xmlstarlet ed -u '//bookmark/@href' -v '"$dir_name"' xml | head -n3
+    # change path of bookmark with selected ID : xmlstarlet ed -L -u '//bookmark[contains(., "1760776747/10")]/@href' -v '/chemin/arbitraire' user-places.xbel
+    # change icon name "folder-documents" to "folder-XYZ" : xmlstarlet ed -L -N xmlns:bookmark="http://www.freedesktop.org/standards/desktop-bookmarks" -u '//bookmark:icon[@name="folder-documents"]/@name' -v 'folder-XYZ' user-places.xbel
+    #######
+    # change path of bookmark with selected path using Namespaces :
+    # xmlstarlet ed -L -N xmlns:bookmark="http://www.freedesktop.org/standards/desktop-bookmarks" -u '//bookmark[@href="file:///home/olivier/Documents"]/@href' -v 'test' user-places.xbel
+
+    book_found=$(xmlstarlet ed -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file" | grep "$part_data_user_dir/$dir_name")
+
+    if test -z "$book_found"; then
+      info "pas de modification de marque-pages QT a effectuer pour le dossier « $dir_name »"
+    else
+      echo "Modification du marque-pages : « file://$part_data_user_dir/$enco_dir $dir_name » pour QT bookmarks"
+      test "$do_change" = "yes" && xmlstarlet ed -L -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file"
+    fi
+  else # FIN bookmarks QT
+    info "pas de fichier « $qt_book_file » a traiter !"
+  fi
+done
+
+test -f "$gnome_book_file" && sudo -u "$SUDO_USER" sort -t' ' +1 -d "$gnome_book_file" -o "$gnome_book_file" # trie les bookmarks par ordre alphabetique
 sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
 log_file "$xdg_conf_file" "a"
-log_file "$book_file" "a"
-log_file "$xbel_file" "a"
+log_file "$gnome_book_file" "a"
+log_file "$qt_book_file" "a"
 if test "$do_change" = "yes"; then
   sudo -u "$SUDO_USER" echo -e " etat du home APRES modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
   sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
