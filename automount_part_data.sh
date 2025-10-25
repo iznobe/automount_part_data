@@ -446,8 +446,8 @@ for dir_name in "${dir_tab[@]}"; do
     # install xmlstarlet !!!
     # qt_book_file="$home/.local/share/user-places.xbel"
 
-    book_found=$(xmlstarlet ed -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file" | grep "$part_data_user_dir/$dir_name")
-
+    book_found="$(grep "$home/$enco_dir" "$qt_book_file")"
+echo "book_found=$book_found"
     if test -z "$book_found"; then
       info "pas de modification de marque-pages QT a effectuer pour le dossier « $dir_name »"
     else
