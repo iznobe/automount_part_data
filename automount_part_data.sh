@@ -129,7 +129,7 @@ while true; do
       Mount="/media"
       break
     ;;
-    *) err "choix invalide";;
+    *) err "Choix invalide";;
   esac
 done
 blue "Votre choix : $Mount"
@@ -155,7 +155,7 @@ while read -ra lsblkDT; do #path fstype hotplug mountpoint label
 done < <(lsblk -no path,fstype,hotplug,mountpoint,label)
 
 if ((${#ListPart[@]} == 0)); then
-  err "il n’y a pas de partition susceptible d’être montée."
+  err "Il n’y a pas de partition susceptible d’être montée."
   exit 2
 fi
 
@@ -163,7 +163,7 @@ nbDev=$(("${#ListPart[@]}"/5))
 
           echo             # 0        1           2             3             4
           echo "  n°  ⇒    path     fstype  externe/interne     mountpoint     label"
-echo "-----------------------------------------------------------------------------"
+echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
 for (( n=0; n<nbDev; n++ )); do
   if ((n+1 < 10)); then
     echo "  $((n+1))   ⇒ ${ListPart[$n,0]}    ${ListPart[$n,1]}          ${ListPart[$n,2]}       ${ListPart[$n,3]}      ${ListPart[$n,4]}"
@@ -195,7 +195,7 @@ else
   echo "La partition « $Part » a l’étiquette « $PartLabel »."
   checkLabel "$PartLabel"
   if (( $? == 1 )); then
-    err "étiquette invalide !"
+    err "Étiquette invalide !"
     unset newLabel
     chooseLabel
   else
@@ -212,7 +212,7 @@ else
           chooseLabel
           break
         ;;
-        *) err "choix invalide";;
+        *) err "Choix invalide";;
       esac
     done
   fi
@@ -242,7 +242,7 @@ while true; do
       log_file "/etc/fstab" "b"
 
       while (("$q" == 1)); do
-        echo "le fichier /etc/fstab sera mis à jour si vous poursuivez"
+        echo "Le fichier « /etc/fstab » sera mis à jour si vous poursuivez"
         read -rp "Etes-vous SÛR de vouloir procéder au montage pour la partition « $Part » en y mettant pour étiquette « $newLabel » ? [O/n] "
         case "$REPLY" in
           N|n)
@@ -263,7 +263,7 @@ while true; do
             fi
             break
           ;;
-          *) err "choix invalide";;
+          *) err "Choix invalide";;
         esac
       done
 
@@ -298,7 +298,7 @@ while true; do
         ! test -d "$part_data_path" && mkdir -v "$part_data_path"
         systemctl daemon-reload
         if ! mount -a; then
-          err "inattendue , annulation des modifications !"
+          err "Inattendue , annulation des modifications !"
           mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
           systemctl daemon-reload
           sleep 1
@@ -317,7 +317,7 @@ while true; do
         chmod -c 700 "$trash_user_dir"
       else
         part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
-        info "-----------------------------------------------------------------"
+        echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
         echo
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
@@ -327,24 +327,24 @@ while true; do
         echo
        info "Création de la corbeille réussie"
         echo
-        info "-----------------------------------------------------------------"
+        echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
         echo
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
       else
         if test "$do_change" = "yes"; then
-          err "inconnue !"
+          err "Inconnue !"
           exit 4
         fi
       fi
       break
     ;;
-    *) err "choix invalide";;
+    *) err "Choix invalide";;
   esac
 done
 
 while true; do
-  read -rp "Voulez-vous deplacer TOUTES vos données utilisateur dans la partition « $Part » qui vient d' être montée sur : « $part_data_user_dir » ?
+  read -rp "Voulez-vous déplacer TOUTES vos données utilisateur dans la partition « $Part » qui vient d'être montée sur : « $part_data_user_dir » ?
   cette action peut durer très longtemps, ne pas interrompre pour éviter la perte des données . soyez patient svp !
   Lancer le déplacement des données maintenant ?  [O/n]"
   case "$REPLY" in
@@ -356,10 +356,40 @@ while true; do
       blue "Votre choix : oui"
       break
     ;;
-    *) err "choix invalide";;
+    *) err "Choix invalide";;
   esac
 done
 
+while true; do
+  read -rp "Pour intégrer le déplacement de vos données au sein du système :
+  Répondez « 1 » pour utiliser les variables XDG seulement.
+  Répondez « 2 » pour utiliser les liens symboliques seulement.
+  Répondez « 3 » pour utiliser les variables XDG ET les liens symboliques.
+  Répondez « A » pour abandonner.
+
+  NOTE : l'utilisation des liens symboliques est à éviter et n'est pas conseillée si vous ne connaissez pas leur fonctionnement et ce que cela implique !
+
+  choix : [ 1 / 2 / 3 / A ] ?"
+  case "$REPLY" in
+    1)
+      blue "Votre choix ( conseillé ) : les variables XDG uniquement"
+      break
+    ;;
+    2)
+      info "Votre choix ( dé-conseillé ) : les liens symboliques uniquement"
+      break
+    ;;
+    3)
+      info "Votre choix ( dé-conseillé ) : les variable XDG + les liens symboliques"
+      break
+    ;;
+    A)
+      err "Annulation par l’utilisateur !"
+      exit 0
+    ;;
+    *) err "Choix invalide";;
+  esac
+done
 
 xdg_conf_file="$home/.config/user-dirs.dirs"
 sav_file "$xdg_conf_file" "u"
@@ -371,19 +401,25 @@ qt_book_file="$home/.local/share/user-places.xbel"
 sav_file "$qt_book_file" "u"
 log_file "$qt_book_file" "b"
 
-# creer un lien pour chaque dossier deplacé :
+
+# creer un lien pour chaque dossier déplacé :
 info "Déplacement des dossiers : \n"
 for elem in "$home"/*; do
-    if test -d "$elem"; then
+  if test -d "$elem"; then
     dir_name=${elem##*/}
-    dir_tab+=("$dir_name")
-    if [[ "$dir_name" =~ ^\. ]] || test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! dossier systeme à ne pas déplacer : $dir_name !"; continue;fi
+    dir_tab+=( "$dir_name" )
+    if [[ "$dir_name" =~ ^\. ]] || test "$dir_name" = "snap" -o "$dir_name" = "thunderbird.tmp"; then echo " ! Dossier système , à ne pas déplacer : $dir_name !"; continue;fi
     if test -L "$elem"; then echo "  ! $dir_name est un lien , pas de déplacement ."; continue;fi
-    # deplacement des dossiers
-    echo "déplacement du dossier « $dir_name » en cours ..."
+    # déplacement des dossiers
+    echo "Déplacement du dossier « $dir_name » en cours ..."
     if test "$do_change" = "yes"; then
-      if ! sudo -u "$SUDO_USER" mv "$elem" "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name" "$home"; then
-        err "copie non effectuée !"
+      if test "$REPLY" = "1"; then
+        sudo -u "$SUDO_USER" mv "$elem" "$part_data_user_dir"
+      else
+        sudo -u "$SUDO_USER" mv "$elem" "$part_data_user_dir" && sudo -u "$SUDO_USER" ln -s "$part_data_user_dir/$dir_name" "$home"
+      fi
+      if (( $? != 0)); then
+        err "Copie non effectuée !"
         exit 1
       fi
     fi
@@ -397,26 +433,28 @@ printf "\n"
 for dir_name in "${dir_tab[@]}"; do
   enco_dir=$(urlencode "$dir_name")
   # traitement XDG
-  if test -f "$xdg_conf_file"; then
-    # recuperation des éléments
-    xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
-    mapfile -t numLines < <(grep -En "/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
-    # suppresion ancienne config
-    if ((${#numLines[@]} > 0)); then
-      for num in "${numLines[@]}"; do
-        echo "suppression de la ligne « ${num} » dans le fichier « $xdg_conf_file »"
-        test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
-      done
+  if test "$REPLY" != "2"; then
+    if test -f "$xdg_conf_file"; then
+      # récupération des éléments
+      xdg_var_name="$(awk -F'[="]' -v pattern="$dir_name" '/^XDG/ && $3 ~ pattern {sub(/XDG_/,"",$1); sub(/_DIR/,"",$1); print $1}' "$xdg_conf_file")"
+      mapfile -t numLines < <(grep -En "/$dir_name\"([[:space:]]|$)" "$xdg_conf_file" | cut -d ":" -f 1 | sort -rn)
+      # suppression ancienne config
+      if ((${#numLines[@]} > 0)); then
+        for num in "${numLines[@]}"; do
+          echo "Suppression de la ligne « ${num} » dans le fichier « $xdg_conf_file »"
+          test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$xdg_conf_file"
+        done
+      fi
+      # Construction des éléments :
+      if test -n "$xdg_var_name"; then
+        echo "Modification de la variable : « $xdg_var_name » => $part_data_user_dir/$dir_name"
+        test "$do_change" = "yes" && sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
+      else
+        info "Pas de modification de la variable XDG pour le dossier « $dir_name »"
+      fi
+    else # FIN XDG
+      err "Pas de fichier .config/user-dirs.dirs !"
     fi
-    # Construction des éléments :
-    if test -n "$xdg_var_name"; then
-      echo "Modification de la variable : « $xdg_var_name » => $part_data_user_dir/$dir_name"
-      test "$do_change" = "yes" && sudo -u "$SUDO_USER" xdg-user-dirs-update --set "$xdg_var_name"  "$part_data_user_dir/$dir_name"
-    else
-      info "Pas de modification de la variable XDG pour le dossier « $dir_name »"
-    fi
-  else # FIN XDG
-    err "pas de fichier .config/user-dirs.dirs !"
   fi
 
   # traitement bookmarks
@@ -424,34 +462,35 @@ for dir_name in "${dir_tab[@]}"; do
     mapfile -t numLines < <(grep -En "/$enco_dir([[:space:]]|$)" "$gnome_book_file" | cut -d ":" -f 1 | sort -rn)
     if ((${#numLines[@]} > 0)); then
       for num in "${numLines[@]}"; do
-        # suppresion ancienne config
-        echo "suppression de la ligne « ${num} » dans le fichier « $gnome_book_file »"
+        # suppression ancienne config
+        echo "Suppression de la ligne « ${num} » dans le fichier « $gnome_book_file »"
         test "$do_change" = "yes" && sudo -u "$SUDO_USER" sed -i "${num}d" "$gnome_book_file"
       done
       # Construction des éléments :
       echo "Modification du marque-pages : « file://$part_data_user_dir/$enco_dir $dir_name » pour GNOME bookmarks"
       test "$do_change" = "yes" && sudo -u "$SUDO_USER" echo "file://$part_data_user_dir/$enco_dir $dir_name" | tee -a "$gnome_book_file"
     else
-      info "pas de modification de marque-pages GNOME a effectuer pour le dossier « $dir_name »"
+      info "Pas de modification de marque-pages GNOME a effectuer pour le dossier « $dir_name »"
     fi
   else # FIN bookmarks GNOME
     info "pas de fichier « $gnome_book_file » a traiter !"
   fi
 
   if test -f "$qt_book_file"; then # QT
-    # install xmlstarlet !!!
-    # qt_book_file="$home/.local/share/user-places.xbel"
+    # install xmlstarlet :
+    if ! dpkg-query -f '${binary:Package}\n' -W "xmlstarlet" &>/dev/null; then
+      apt-get install -qq "xmlstarlet"
+    fi
 
-    book_found=$(xmlstarlet ed -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file" | grep "$part_data_user_dir/$dir_name")
-
+    book_found="$(grep "$home/$enco_dir" "$qt_book_file")"
     if test -z "$book_found"; then
-      info "pas de modification de marque-pages QT a effectuer pour le dossier « $dir_name »"
+      info "Pas de modification de marque-pages QT a effectuer pour le dossier « $dir_name »"
     else
       echo "Modification du marque-pages : « file://$part_data_user_dir/$enco_dir $dir_name » pour QT bookmarks"
-      test "$do_change" = "yes" && xmlstarlet ed -L -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "$part_data_user_dir/$enco_dir" "$qt_book_file"
+      test "$do_change" = "yes" && sudo -u "$SUDO_USER" xmlstarlet ed -L -N xmlns:bookmark='http://www.freedesktop.org/standards/desktop-bookmarks' -u "//bookmark[@href='file://$home/$enco_dir']/@href" -v "file://$part_data_user_dir/$enco_dir" "$qt_book_file"
     fi
   else # FIN bookmarks QT
-    info "pas de fichier « $qt_book_file » a traiter !"
+    info "Pas de fichier « $qt_book_file » a traiter !"
   fi
 done
 
@@ -461,19 +500,18 @@ log_file "$xdg_conf_file" "a"
 log_file "$gnome_book_file" "a"
 log_file "$qt_book_file" "a"
 if test "$do_change" = "yes"; then
-  sudo -u "$SUDO_USER" echo -e " etat du home APRES modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" echo -e "état du home APRES modifs :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
   sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 fi
 echo
-test "$do_change" = "yes" && echo "pour voir l ' etat des fichiers modifié : cat automount.log$now_time"
-echo "cp .config/gtk-3.0/bookmarks.SAVE .config/gtk-3.0/bookmarks && cp .config/user-dirs.dirs.SAVE .config/user-dirs.dirs"
+test "$do_change" = "yes" && echo "pour voir l ' état des fichiers modifiés : cat automount.log$now_time"
 echo
-echo "-----------------------------------------------------------------"
+echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
 echo
 blue "Script pour montage de partition de données terminé avec succès !"
 echo
 
-echo -e "\\033[1;31m ! IMPORTANT ! : Toutes vos données utilisateurs seront dorénavant stockées dans votre partition $label : « $part » .
-ces données sont accessible par le chemin suivant : « $part_data_path ».
-Pour SAUVEGARDER vos données personelles , vous devez dorénavant utiliser le nouveau chemin de stockage de vos données personnelles : « $part_data_user_dir ».
-Veuillez consulter le lien suivant pour plus d' infos sur la sauvegarde : https://doc.ubuntu-fr.org/sauvegarde \\033[0;0m"
+echo -e "\\033[1;31m ! IMPORTANT ! : Toutes vos données utilisateurs seront dorénavant stockées dans votre partition $newLabel : « $Part » .
+Ces données sont accessibles par le chemin suivant : « $part_data_path ».
+Pour SAUVEGARDER vos données personnelles , vous devez dorénavant utiliser le nouveau chemin de stockage de vos données personnelles : « $part_data_user_dir ».
+Voir ce lien pour plus d'infos sur la sauvegarde : https://doc.ubuntu-fr.org/sauvegarde \\033[0;0m"
