@@ -504,13 +504,13 @@ if test "$do_change" = "yes"; then
   sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 fi
 echo
-test "$do_change" = "yes" && echo "pour voir l ' état des fichiers modifiés : cat automount.log$now_time"
+test "$do_change" = "yes" && echo "pour voir l'état des fichiers modifiés passer la commande suivante : cat automount.log$now_time"
 echo
 echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
 echo
 blue "Script pour montage de partition de données terminé avec succès !"
 echo
-
+info "Vous devez relancer la session graphique ou redémarrer l ' ordinateur pour que les changements soient effectifs."
 echo -e "\\033[1;31m ! IMPORTANT ! : Toutes vos données utilisateurs seront dorénavant stockées dans votre partition $newLabel : « $Part » .
 Ces données sont accessibles par le chemin suivant : « $part_data_path ».
 Pour SAUVEGARDER vos données personnelles , vous devez dorénavant utiliser le nouveau chemin de stockage de vos données personnelles : « $part_data_user_dir ».
