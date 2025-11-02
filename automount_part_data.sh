@@ -297,7 +297,7 @@ while true; do
         part_data_path="$Mount/$newLabel"
         ! test -d "$part_data_path" && mkdir -v "$part_data_path"
         systemctl daemon-reload
-        if ! mount -a; then
+        if ! mount -a || test -z "$(grep -E ^LABEL="$newLabel"[[:space:]] /etc/fstab)"; then
           err "Inattendue , annulation des modifications !"
           mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
           systemctl daemon-reload
@@ -315,27 +315,26 @@ while true; do
         ! test -d "$trash_user_dir" && mkdir -v "$trash_user_dir"
         chown -c "$SUDO_USER": "$trash_user_dir"
         chmod -c 700 "$trash_user_dir"
-      else
+
+        if test -d "$trash_user_dir"; then
+          echo
+          info "Création de la corbeille réussie"
+          echo
+          blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir »."
+          echo
+          info "Fin montage partition « $Part » avec l'étiquette « $newLabel »."
+          echo
+          echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
+        else
+          err "Inconnue !"
+          exit 4
+        fi
+      else # mode test :
         part_data_user_dir="$Mount/$newLabel/$SUDO_USER-$newLabel"
         echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
         echo
         blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
         echo
-      fi
-
-      if test -d "$trash_user_dir"; then
-        echo
-       info "Création de la corbeille réussie"
-        echo
-        echo -e "\\033[0;33m ----------------------------------------------------------------------------- \\033[0;0m"
-        echo
-        blue "Vous pouvez maintenant accéder à votre partition en parcourant le dossier suivant : « $part_data_user_dir » ."
-        echo
-      else
-        if test "$do_change" = "yes"; then
-          err "Inconnue !"
-          exit 4
-        fi
       fi
       break
     ;;
@@ -495,7 +494,6 @@ for dir_name in "${dir_tab[@]}"; do
 done
 
 test -f "$gnome_book_file" && sudo -u "$SUDO_USER" sort -t' ' +1 -d "$gnome_book_file" -o "$gnome_book_file" # trie les bookmarks par ordre alphabetique
-sudo -u "$SUDO_USER" xdg-user-dirs-gtk-update
 log_file "$xdg_conf_file" "a"
 log_file "$gnome_book_file" "a"
 log_file "$qt_book_file" "a"
