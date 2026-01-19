@@ -365,20 +365,22 @@ while true; do
   Répondez « 3 » pour utiliser les variables XDG ET les liens symboliques.
   Répondez « A » pour abandonner.
 
-  NOTE : l'utilisation des liens symboliques est à éviter et n'est pas conseillée si vous ne connaissez pas leur fonctionnement et ce que cela implique !
+  NOTE : l'utilisation des liens symboliques ET des variables XDG est à privilégier , si vous n' êtes pas certain du choix à faire.
+  
+  Important ! : Pensez bien que l ' emplacement de vos données à sauvegarder ne sera plus votre dossier personnel désormais , mais qu ' il faudra sauvegarder le dossier suivant : $part_data_user_dir à la place !
 
   choix : [ 1 / 2 / 3 / A ] ?"
   case "$REPLY" in
     1)
-      blue "Votre choix ( conseillé ) : les variables XDG uniquement"
+      blue "Votre choix : les variables XDG uniquement"
       break
     ;;
     2)
-      info "Votre choix ( dé-conseillé ) : les liens symboliques uniquement"
+      info "Votre choix : les liens symboliques uniquement"
       break
     ;;
     3)
-      info "Votre choix ( dé-conseillé ) : les variable XDG + les liens symboliques"
+      info "Votre choix : les variable XDG + les liens symboliques"
       break
     ;;
     A)
