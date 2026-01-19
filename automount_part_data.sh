@@ -295,7 +295,8 @@ while true; do
         log_file "/etc/fstab" "a"
 
         part_data_path="$Mount/$newLabel"
-        ! test -d "$part_data_path" && mkdir -v "$part_data_path" && systemctl daemon-reload
+        ! test -d "$part_data_path" && mkdir -v "$part_data_path"
+        systemctl daemon-reload
         if ! mount -a || test -z "$(grep -E ^LABEL="$newLabel"[[:space:]] /etc/fstab)"; then
           err "Inattendue , annulation des modifications !"
           mv -v /etc/fstab.BaK"$now_time" /etc/fstab # il faut enlever la ligne qui a étée ajouter au fstab
