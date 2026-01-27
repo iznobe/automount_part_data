@@ -99,10 +99,11 @@ urlencode() {
 }
 
 if ((UID)); then
-  err "Vous devez être super utilisateur pour lancer ce script (essayez avec « sudo $0 »)."
+  err "Vous devez être super utilisateur pour lancer ce script ( Utilisez la commande suivante « sudo $0 »)."
   exit 1
 fi
 
+cd
 LC_ALL=C
 home="/home/$SUDO_USER"
 now_time=$(date +"-%d-%m-%Y-%H-%M-%S")
@@ -110,7 +111,7 @@ if test "$do_change" = "yes"; then
 log="$home/automount.log$now_time"
   sudo -u "$SUDO_USER" echo -e "$now_time" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
   sudo -u "$SUDO_USER" echo -e "home au depart :" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
-  sudo -u "$SUDO_USER" ls -l  | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
+  sudo -u "$SUDO_USER" ls -l "$home" | sudo -u "$SUDO_USER" tee -a "$log" > /dev/null
 fi
 dir_tab=()
 declare -A ListPart
