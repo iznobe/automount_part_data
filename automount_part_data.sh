@@ -279,17 +279,9 @@ while true; do
         elif test "$PartFstype" = "ntfs"; then
           ntfslabel  "$Part" "$newLabel"
           if ((PartPlug == 0)); then # partition interne
-            if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            else
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            fi
+            echo "LABEL=$newLabel $Mount/$newLabel auto defaults,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
           else # partition externe NTFS
-            if dpkg-query -l ntfs-3g | grep -q "^[hi]i"; then
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs-3g defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            else
-              echo "LABEL=$newLabel $Mount/$newLabel ntfs defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
-            fi
+            echo "LABEL=$newLabel $Mount/$newLabel auto defaults,nofail,x-systemd.device-timeout=1,x-gvfs-show,nohidden,uid=$SUDO_UID,gid=$SUDO_GID" | tee -a /etc/fstab
           fi
         fi
         log_file "/etc/fstab" "a"
